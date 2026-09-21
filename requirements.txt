@@ -1,0 +1,14 @@
+numpy==2.2.6
+pandas==2.2.2
+sqlalchemy==2.0.30
+psycopg2-binary==2.9.9
+recordlinkage==0.16
+jellyfish==1.0.3
+networkx==3.3
+scikit-learn==1.5.0
+shap==0.46.0
+streamlit==1.37.0
+matplotlib==3.9.0
+jupyter==1.0.0
+scipy==1.13.1
+contourpy==1.2.1
