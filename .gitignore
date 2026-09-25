@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Python Virtual Environments
 venv/
 .venv/
@@ -33,3 +34,11 @@ data/processed/*
 # OS Generated Files
 .DS_Store
 Thumbs.db
+
+.venv/ 
+__pycache__/ 
+data/raw/*.csv 
+.env
+raw_companies.csv
+raw_chunk_*.csv
+registry_backup.dump
