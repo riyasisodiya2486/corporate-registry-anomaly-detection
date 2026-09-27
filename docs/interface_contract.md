@@ -85,46 +85,36 @@ One row per company, after normalization. **This is the table Riya's code reads 
 
 **Naming rule:** any field with both a raw and normalized version follows `<field>_raw` / `<field>_normalized`. No alternate names.
 
-### 1.3 `candidate_pairs` (Yashika)
-Output of the blocking step.
+### 1.3 `candidate_pairs` (In-Memory Only)
+Output of the blocking step. Candidate pairs are generated and scored dynamically in local memory to keep database storage well within Neon PostgreSQL free-tier limits (512 MB quota). 
 
-| Column | Type | Notes |
-|---|---|---|
-| `pair_id` | SERIAL PRIMARY KEY | |
-| `entity_id_a` | INTEGER REFERENCES cleaned_entities(entity_id) | always the smaller entity_id |
-| `entity_id_b` | INTEGER REFERENCES cleaned_entities(entity_id) | always the larger entity_id |
-| `blocking_method` | TEXT | `'pincode'` or `'name_prefix'` — insert separate rows if found by both |
-| `created_at` | TIMESTAMP DEFAULT NOW() | |
+> **Downstream Impact:** This table is **no longer persisted as a physical table** in Neon. Any feature extraction requiring full candidate pair evaluation (e.g., `detect_bridge`) regenerates candidate pairs locally in memory.
 
 ### 1.4 `scored_pairs` (Riya)
-One row per candidate pair, with similarity scores.
+Stores positive matches identified during candidate pair scoring ($\ge 0.85$ threshold). Non-matching candidate pairs are processed in memory and discarded to prevent exceeding database storage limits.
 
 | Column | Type | Notes |
 |---|---|---|
-| `pair_id` | INTEGER PRIMARY KEY REFERENCES candidate_pairs(pair_id) | |
-| `address_similarity` | FLOAT | Jaro-Winkler, 0.0–1.0 |
-| `name_similarity` | FLOAT | Levenshtein-based, 0.0–1.0 |
+| `pair_id` | INTEGER PRIMARY KEY | In-memory unique pair identifier |
+| `entity_id_a` | INTEGER | First entity ID (always smaller ID) |
+| `entity_id_b` | INTEGER | Second entity ID (always larger ID) |
+| `address_similarity` | FLOAT | Jaro-Winkler similarity score, 0.0–1.0 |
+| `name_similarity` | FLOAT | Jaro-Winkler similarity score, 0.0–1.0 |
 | `is_match` | BOOLEAN | TRUE if either score clears `MATCH_THRESHOLD` |
-| `scored_at` | TIMESTAMP DEFAULT NOW() | |
+| `scored_at` | TIMESTAMP DEFAULT NOW() | Timestamp recorded in Neon DB |
 
-### 1.5 `graph_edges` (Riya)
-Confirmed edges used to build the NetworkX graph.
+### 1.5 `graph_edges` (In-Memory Only)
+Edge representation derived directly from `scored_pairs` ($is\_match = TRUE$). Computed on-the-fly during graph construction and connected component processing in `src/graph/run_clustering.py`. Not persisted in Neon PostgreSQL.
 
-| Column | Type | Notes |
-|---|---|---|
-| `edge_id` | SERIAL PRIMARY KEY | |
-| `pair_id` | INTEGER REFERENCES scored_pairs(pair_id) | |
-| `entity_id_a` | INTEGER | denormalized for query convenience |
-| `entity_id_b` | INTEGER | denormalized for query convenience |
-| `edge_weight` | FLOAT | max(address_similarity, name_similarity) |
-
-### 1.6 `cluster_assignments` (Yashika persists, Riya's graph output feeds it)
+### 1.6 `entity_clusters` (Riya)
+Output of the graph connected components step. Maps each matched entity to a graph cluster ID and records cluster size for downstream anomaly scoring.
 
 | Column | Type | Notes |
 |---|---|---|
-| `entity_id` | INTEGER PRIMARY KEY REFERENCES cleaned_entities(entity_id) | |
-| `cluster_id` | INTEGER NOT NULL | |
-| `assigned_at` | TIMESTAMP DEFAULT NOW() | |
+| `entity_id` | INTEGER PRIMARY KEY | Entity identifier referencing `cleaned_entities(entity_id)` |
+| `cluster_id` | TEXT | Cluster designation (`cluster_1`, `cluster_2`, etc.) |
+| `cluster_size` | INTEGER | Total number of connected entities in this cluster |
+| `created_at` | TIMESTAMP DEFAULT NOW() | Record creation timestamp |
 
 ### 1.7 `cluster_scores` (Riya)
 One row per cluster, full expanded signal set.

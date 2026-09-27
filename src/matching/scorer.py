@@ -1,39 +1,47 @@
+import jellyfish
 import pandas as pd
-import jellyfish   # swap to recordlinkage if that was your Day 2 decision
 
-# Import from shared config once it exists; hardcode for now if not yet created
 MATCH_THRESHOLD = 0.85
 
 
 def score_candidate_pairs(pairs_df, entities_df):
-    """
-    Input:
+    """Input:
+
       pairs_df: DataFrame with [pair_id, entity_id_a, entity_id_b]
-      entities_df: DataFrame with [entity_id, company_name_normalized, address_normalized]
+      entities_df: DataFrame with [entity_id, company_name_normalized,
+      address_normalized]
+
     Output:
       DataFrame with [pair_id, address_similarity, name_similarity, is_match]
-      (matches the scored_pairs table schema in the interface contract)
     """
-    lookup = entities_df.set_index("entity_id")
+    fields = entities_df.set_index("entity_id")[
+        ["company_name_normalized", "address_normalized"]
+    ]
 
-    results = []
-    for _, row in pairs_df.iterrows():
-        a = lookup.loc[row["entity_id_a"]]
-        b = lookup.loc[row["entity_id_b"]]
+    merged = pairs_df.merge(
+        fields, left_on="entity_id_a", right_index=True
+    ).merge(fields, left_on="entity_id_b", right_index=True, suffixes=("_a", "_b"))
 
-        name_a = a["company_name_normalized"] or ""
-        name_b = b["company_name_normalized"] or ""
-        addr_a = a["address_normalized"] or ""
-        addr_b = b["address_normalized"] or ""
+    names_a = merged["company_name_normalized_a"].fillna("")
+    names_b = merged["company_name_normalized_b"].fillna("")
+    addrs_a = merged["address_normalized_a"].fillna("")
+    addrs_b = merged["address_normalized_b"].fillna("")
 
-        name_sim = jellyfish.jaro_winkler_similarity(name_a, name_b) if name_a and name_b else 0.0
-        addr_sim = jellyfish.jaro_winkler_similarity(addr_a, addr_b) if addr_a and addr_b else 0.0
+    name_sims = [
+        jellyfish.jaro_winkler_similarity(a, b) if a and b else 0.0
+        for a, b in zip(names_a, names_b)
+    ]
+    addr_sims = [
+        jellyfish.jaro_winkler_similarity(a, b) if a and b else 0.0
+        for a, b in zip(addrs_a, addrs_b)
+    ]
 
-        results.append({
-            "pair_id": row["pair_id"],
-            "address_similarity": round(addr_sim, 4),
-            "name_similarity": round(name_sim, 4),
-            "is_match": bool(addr_sim >= MATCH_THRESHOLD or name_sim >= MATCH_THRESHOLD),
-        })
+    merged["address_similarity"] = addr_sims
+    merged["name_similarity"] = name_sims
+    merged["is_match"] = (merged["address_similarity"] >= MATCH_THRESHOLD) | (
+        merged["name_similarity"] >= MATCH_THRESHOLD
+    )
 
-    return pd.DataFrame(results)
+    return merged[
+        ["pair_id", "address_similarity", "name_similarity", "is_match"]
+    ]
