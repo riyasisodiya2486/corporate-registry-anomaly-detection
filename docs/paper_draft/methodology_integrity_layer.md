@@ -1,0 +1,5 @@
+# Integrity Layer Methodology
+
+A hash-chain integrity layer was implemented to provide tamper-evident storage for cleaned corporate registry records and audit actions. For each cleaned entity, a SHA-256 hash was computed from the entity's relevant normalized record fields together with the hash of the previous record, forming a sequential hash chain across the dataset. The resulting hashes were stored in the `record_hashes` table, while reviewer and audit actions were recorded in the `audit_log` table using the same chained-hash principle.
+
+The implementation was tested on the 188,042 cleaned corporate registry records used in the project. The complete entity hash chain was generated successfully, and verification of the untampered chain confirmed integrity across all 188,042 records. The audit log chain was also verified successfully. To demonstrate tamper detection, the stored hash for row 5 was deliberately replaced with the value `TAMPERED`. On re-verification, the system reported `BROKEN CHAIN at row 4: record_hash does not match the expected hash`, demonstrating that modification of a stored hash is detected during chain verification.
