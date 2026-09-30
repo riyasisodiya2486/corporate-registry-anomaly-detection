@@ -1,11 +1,17 @@
 import hashlib
+import os
 
 from sqlalchemy import create_engine, text
+from dotenv import load_dotenv
 
+load_dotenv()
 
-engine = create_engine(
+LOCAL_ENGINE = create_engine(
     "postgresql://admin:admin123@localhost:5432/registry"
 )
+engine = LOCAL_ENGINE
+
+NEON_ENGINE = create_engine(os.environ["DATABASE_URL"])
 
 
 def compute_record_hash(entity_row, previous_hash: str) -> str:
@@ -103,10 +109,13 @@ def hash_all_entities():
         )
 
 
-def log_audit_action(action_type: str, cluster_id, reviewer: str) -> str:
+def log_audit_action(action_type: str, cluster_id, reviewer: str, db_engine=None) -> str:
     """Write one audit_log row, chaining it from the previous audit action."""
 
-    with engine.connect() as conn:
+    if db_engine is None:
+        db_engine = LOCAL_ENGINE
+
+    with db_engine.connect() as conn:
 
         last = conn.execute(
             text(
