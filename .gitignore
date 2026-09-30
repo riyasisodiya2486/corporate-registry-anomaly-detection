@@ -1,3 +1,40 @@
+<<<<<<< HEAD
+# Python Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Local Data Files (Raw & Processed CSVs)
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Environment & Credentials
+.env
+*.env.local
+
+# Database Files
+*.sqlite
+*.db
+
+# IDE & Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
+
 .venv/ 
 __pycache__/ 
 data/raw/*.csv 
