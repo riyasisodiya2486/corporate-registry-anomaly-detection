@@ -78,12 +78,10 @@ def normalize_company_name(name):
 
 
 def extract_pincode(address):
-    """Extract a 6-digit Indian pincode. Returns None if not found."""
     if not address or not isinstance(address, str):
         return None
 
-    match = re.search(r"\b(\d{6})\b", address)
-
+    match = re.search(r"\b([1-9]\d{5})\b", address)
     return match.group(1) if match else None
 
 

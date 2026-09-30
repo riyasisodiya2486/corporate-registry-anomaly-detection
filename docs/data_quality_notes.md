@@ -21,3 +21,17 @@ After applying the normalization pipeline:
 - Authorized capital values parsed successfully: 142,762
 
 The normalization process converts company names to lowercase, removes legal suffixes and punctuation, normalizes address formatting and abbreviations, extracts six-digit Indian pincodes, and converts capital values into numeric form.
+
+## Day 5 Data Quality Update
+
+Before cleanup:
+- Total cleaned entities: 188,042
+- Records with pincode `000000`: 2,763
+
+Cleanup performed:
+- Converted all `000000` pincodes to `NULL`.
+
+After cleanup:
+- Records with pincode `000000`: 0
+- Records with NULL pincode: 2,794
+- Total cleaned entities: 188,042
