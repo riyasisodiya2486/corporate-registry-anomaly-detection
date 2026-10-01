@@ -1,9 +1,9 @@
 cluster_id,cluster_size,composite_score,flag_category,audit_group,human_verdict,notes
-806,4,100.0,high_priority,top_flagged,plausible,Shadow Nidhi network; identical naming across talukas
-1585,3,100.0,high_priority,top_flagged,plausible,Rapid SPV creation; 4-day window via C/O addresses
-1714,3,98.97,high_priority,top_flagged,not plausible,Government scheme artifact; Farmer Producer Companies wave
-739,4,98.04,high_priority,top_flagged,not plausible,Government scheme artifact; Farmer Producer Companies wave
-629,4,97.7,high_priority,top_flagged,plausible,Address co-location & operational churn; 2 Strike Off and 2 Active,,
+806,4,100.0,high_priority,top_flagged,plausible,"Shadow Nidhi network; identical naming across talukas"
+1585,3,100.0,high_priority,top_flagged,plausible,"Rapid SPV creation; 4-day window via C/O addresses"
+1714,3,98.97,high_priority,top_flagged,not plausible,"Government scheme artifact; Farmer Producer Companies wave"
+739,4,98.04,high_priority,top_flagged,not plausible,"Government scheme artifact; Farmer Producer Companies wave"
+629,4,97.7,high_priority,top_flagged,plausible,"Address co-location & operational churn; 2 Strike Off and 2 Active"
 6141,2,95.18,high_priority,top_flagged,,
 1700,3,95.04,high_priority,top_flagged,,
 655,4,94.8,high_priority,top_flagged,,
@@ -11,7 +11,7 @@ cluster_id,cluster_size,composite_score,flag_category,audit_group,human_verdict,
 1500,3,94.45,high_priority,top_flagged,,
 416,5,92.91,high_priority,top_flagged,,
 1554,3,92.46,high_priority,top_flagged,,
-1726,3,92.24,high_priority,top_flagged,,    
+1726,3,92.24,high_priority,top_flagged,,
 1511,3,91.83,high_priority,top_flagged,,
 1736,3,91.83,high_priority,top_flagged,,
 1202,3,91.48,high_priority,top_flagged,,
