@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import pandas as pd
 import shap
 from dotenv import load_dotenv
@@ -27,9 +28,23 @@ def run():
     model = IsolationForest(n_estimators=200, contamination="auto", random_state=42)
     model.fit(X)
 
+    # Extract raw anomaly scores (-score_samples) matching composite_score logic
+    raw = -model.score_samples(X)
+
     print("Computing SHAP values (TreeExplainer supports IsolationForest directly)...")
     explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(X)
+
+    # --- Verify SHAP's sign convention against our own composite_score convention ---
+    reconstructed = shap_values.sum(axis=1) + explainer.expected_value
+    correlation = np.corrcoef(reconstructed, raw)[0, 1]
+
+    print(f"\nSHAP sign check: correlation = {correlation:.3f}")
+    if correlation < 0:
+        print("CONFIRMED: SHAP is in the OPPOSITE orientation to our convention. Negating shap_values below.")
+        shap_values = -shap_values
+    else:
+        print("CONFIRMED: SHAP already matches our convention (higher = more anomalous). No change needed.\n")
 
     print("Writing cluster_explanations...")
     with engine.begin() as conn:
