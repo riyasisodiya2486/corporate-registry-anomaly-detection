@@ -1,0 +1,7 @@
+numpy
+pandas==2.2.2
+scikit-learn
+shap
+python-dotenv
+sqlalchemy==2.0.30
+psycopg2-binary==2.9.9

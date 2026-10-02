@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 from sqlalchemy import create_engine
 
@@ -9,9 +11,12 @@ from normalize import (
 )
 
 
-engine = create_engine(
+database_url = os.getenv(
+    "DATABASE_URL",
     "postgresql://admin:admin123@localhost:5432/registry"
 )
+
+engine = create_engine(database_url)
 
 
 def run():
@@ -59,7 +64,6 @@ def run():
 
     print(f"SUCCESS: wrote {len(out)} cleaned rows")
 
-    # Quality report
     print("\n=== Cleaning quality report ===")
     print(
         "Addresses normalized OK:",
