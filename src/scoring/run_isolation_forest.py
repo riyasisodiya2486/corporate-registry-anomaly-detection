@@ -46,14 +46,21 @@ def run():
     df["composite_score"] = composite.round(2)
     df["flag_category"] = flag
 
+    records = df[["cluster_id", "isolation_forest_score", "composite_score", "flag_category"]].rename(
+        columns={
+            "cluster_id": "cid",
+            "isolation_forest_score": "ifs",
+            "composite_score": "cs",
+            "flag_category": "fc"
+        }
+    ).to_dict("records")
+
     with engine.begin() as conn:
-        for _, row in df.iterrows():
-            conn.execute(text("""
-                UPDATE cluster_scores
-                SET isolation_forest_score = :ifs, composite_score = :cs, flag_category = :fc
-                WHERE cluster_id = :cid
-            """), {"ifs": float(row["isolation_forest_score"]), "cs": float(row["composite_score"]),
-                    "fc": row["flag_category"], "cid": int(row["cluster_id"])})
+        conn.execute(text("""
+            UPDATE cluster_scores
+            SET isolation_forest_score = :ifs, composite_score = :cs, flag_category = :fc
+            WHERE cluster_id = :cid
+        """), records)
 
     print(f"\nSUCCESS: scored {len(df):,} clusters")
     print(f"Thresholds -- high_priority >= {p_high:.2f} | moderate >= {p_mod:.2f}")
