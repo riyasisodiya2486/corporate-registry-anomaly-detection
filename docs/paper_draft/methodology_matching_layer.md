@@ -5,3 +5,12 @@ Candidate pairs generated from pincode and name-prefix blocking are evaluated us
 
 ## Graph Cluster Formation
 Confirmed matches are converted into weighted edges within an undirected graph $G = (V, E)$, where vertices $V$ represent unique corporate entities and edge weights capture composite similarity metrics. Connected component analysis via NetworkX partitions the graph into distinct corporate clusters. From the evaluated registry dataset, the pipeline identified [INSERT CLUSTER COUNT] unique clusters, with the largest cluster containing [INSERT LARGEST CLUSTER SIZE] interconnected companies.
+
+## Deployment
+
+- Started a disposable PostgreSQL 16 test database on port 5433, separate from the regular database.
+- Seeded the test database with 500 rows sampled from `cleaned_entities`.
+- Ran the matching Docker image with the test database URL.
+- Runtime test completed successfully: 1,739 candidate pairs generated and 2 matched pairs written to the test database.
+- Verified that the test database's `scored_pairs` table contained 2 rows.
+- Scoring container was not run because the test database did not contain the required `cluster_assignments` table.
