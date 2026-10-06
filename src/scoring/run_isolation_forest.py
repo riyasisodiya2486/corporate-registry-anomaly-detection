@@ -18,6 +18,9 @@ FEATURE_COLS = [
 ]
 HIGH_PRIORITY_PERCENTILE = 95
 MODERATE_PERCENTILE = 80
+CHUNK_SIZE = 500  # Neon's pooled connection dropped the request when all 7,384 rows were sent
+                  # as one giant executemany() -- chunking keeps each round-trip small enough
+                  # to succeed while still being far faster than one UPDATE per row.
 
 
 def run():
@@ -55,12 +58,16 @@ def run():
         }
     ).to_dict("records")
 
-    with engine.begin() as conn:
-        conn.execute(text("""
-            UPDATE cluster_scores
-            SET isolation_forest_score = :ifs, composite_score = :cs, flag_category = :fc
-            WHERE cluster_id = :cid
-        """), records)
+    print(f"Writing {len(records):,} rows back in chunks of {CHUNK_SIZE}...")
+    for i in range(0, len(records), CHUNK_SIZE):
+        chunk = records[i:i + CHUNK_SIZE]
+        with engine.begin() as conn:
+            conn.execute(text("""
+                UPDATE cluster_scores
+                SET isolation_forest_score = :ifs, composite_score = :cs, flag_category = :fc
+                WHERE cluster_id = :cid
+            """), chunk)
+        print(f"  updated {min(i + CHUNK_SIZE, len(records)):,}/{len(records):,} rows")
 
     print(f"\nSUCCESS: scored {len(df):,} clusters")
     print(f"Thresholds -- high_priority >= {p_high:.2f} | moderate >= {p_mod:.2f}")
