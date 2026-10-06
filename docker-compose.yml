@@ -11,5 +11,51 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  ingestion:
+    build:
+      context: .
+      dockerfile: src/ingestion/Dockerfile
+    env_file: .env
+
+  cleaning:
+    build:
+      context: .
+      dockerfile: src/cleaning/Dockerfile
+    env_file: .env
+    depends_on:
+      - ingestion
+
+  matching:
+    build:
+      context: .
+      dockerfile: src/matching/Dockerfile
+    env_file: .env
+    depends_on:
+      - cleaning
+
+  graph:
+    build:
+      context: .
+      dockerfile: src/graph/Dockerfile
+    env_file: .env
+    depends_on:
+      - matching
+
+  scoring:
+    build:
+      context: .
+      dockerfile: src/scoring/Dockerfile
+    env_file: .env
+    depends_on:
+      - graph
+
+  integrity:
+    build:
+      context: .
+      dockerfile: src/integrity/Dockerfile
+    env_file: .env
+    depends_on:
+      - scoring
+
 volumes:
   pgdata:

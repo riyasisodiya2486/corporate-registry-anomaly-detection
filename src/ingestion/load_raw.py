@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 from sqlalchemy import create_engine
 
@@ -53,9 +55,12 @@ def load():
 
     df = df[list(available.keys())].rename(columns=available)
 
-    engine = create_engine(
+    database_url = os.getenv(
+        "DATABASE_URL",
         "postgresql://admin:admin123@localhost:5432/registry"
     )
+
+    engine = create_engine(database_url)
 
     df.to_sql(
         "raw_companies",

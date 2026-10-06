@@ -86,11 +86,13 @@ One row per company, after normalization. **This is the table Riya's code reads 
 **Naming rule:** any field with both a raw and normalized version follows `<field>_raw` / `<field>_normalized`. No alternate names.
 
 ### 1.3 `candidate_pairs` (In-Memory Only)
-Output of the blocking step. Candidate pairs are generated and scored dynamically in local memory to keep database storage well within Neon PostgreSQL free-tier limits (512 MB quota). 
+
+Output of the blocking step. Candidate pairs are generated and scored dynamically in local memory to keep database storage well within Neon PostgreSQL free-tier limits (512 MB quota).
 
 > **Downstream Impact:** This table is **no longer persisted as a physical table** in Neon. Any feature extraction requiring full candidate pair evaluation (e.g., `detect_bridge`) regenerates candidate pairs locally in memory.
 
 ### 1.4 `scored_pairs` (Riya)
+
 Stores positive matches identified during candidate pair scoring ($\ge 0.85$ threshold). Non-matching candidate pairs are processed in memory and discarded to prevent exceeding database storage limits.
 
 | Column | Type | Notes |
@@ -104,9 +106,11 @@ Stores positive matches identified during candidate pair scoring ($\ge 0.85$ thr
 | `scored_at` | TIMESTAMP DEFAULT NOW() | Timestamp recorded in Neon DB |
 
 ### 1.5 `graph_edges` (In-Memory Only)
-Edge representation derived directly from `scored_pairs` ($is\_match = TRUE$). Computed on-the-fly during graph construction and connected component processing in `src/graph/run_clustering.py`. Not persisted in Neon PostgreSQL.
+
+Edge representation derived directly from `scored_pairs` (`is_match = TRUE`). Computed on-the-fly during graph construction and connected component processing in `src/graph/run_clustering.py`. Not persisted in Neon PostgreSQL.
 
 ### 1.6 `entity_clusters` (Riya)
+
 Output of the graph connected components step. Maps each matched entity to a graph cluster ID and records cluster size for downstream anomaly scoring.
 
 | Column | Type | Notes |
@@ -115,6 +119,7 @@ Output of the graph connected components step. Maps each matched entity to a gra
 | `cluster_id` | TEXT | Cluster designation (`cluster_1`, `cluster_2`, etc.) |
 | `cluster_size` | INTEGER | Total number of connected entities in this cluster |
 | `created_at` | TIMESTAMP DEFAULT NOW() | Record creation timestamp |
+
 
 ### 1.7 `cluster_scores` (Riya)
 One row per cluster, full expanded signal set.
