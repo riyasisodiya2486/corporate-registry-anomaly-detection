@@ -14,3 +14,8 @@ Confirmed matches are converted into weighted edges within an undirected graph $
 - Runtime test completed successfully: 1,739 candidate pairs generated and 2 matched pairs written to the test database.
 - Verified that the test database's `scored_pairs` table contained 2 rows.
 - Scoring container was not run because the test database did not contain the required `cluster_assignments` table.
+
+
+## Development Process
+
+A branch divergence in the containerization configuration was caught before merging by manually reviewing the branch differences. The Docker and Compose work was then reconciled through the shared branch, preventing accidental loss of completed containerization work.

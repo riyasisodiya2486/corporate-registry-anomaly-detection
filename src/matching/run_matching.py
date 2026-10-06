@@ -23,7 +23,7 @@ engine = create_engine(db_url, pool_pre_ping=True)
 
 
 def run():
-    print("Pulling cleaned_entities from Neon...")
+    print("Pulling cleaned_entities from database...")
     entities = pd.read_sql(
         "SELECT entity_id, pincode, company_name_normalized, address_normalized FROM cleaned_entities",
         engine,
@@ -64,7 +64,7 @@ def run():
         """)
         )
 
-    print("Preparing payload for Neon database upload...")
+    print("Preparing payload for database upload...")
     upload = matches_only.merge(
         pairs[["pair_id", "entity_id_a", "entity_id_b"]], on="pair_id"
     )
@@ -83,7 +83,7 @@ def run():
         ]
     ]
 
-    print("Uploading matched pairs to Neon...")
+    print("Uploading matched pairs to database...")
     upload.to_sql(
         "scored_pairs",
         engine,
@@ -93,7 +93,7 @@ def run():
     )
 
     print(
-        f"SUCCESS: Pushed {len(upload):,} matched pairs to Neon table 'scored_pairs'."
+      f"SUCCESS: Pushed {len(upload):,} matched pairs to database table 'scored_pairs'."
     )
 
 
