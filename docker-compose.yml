@@ -16,6 +16,8 @@ services:
       context: .
       dockerfile: src/ingestion/Dockerfile
     env_file: .env
+    volumes:
+      - ./data/raw:/app/data/raw:ro
 
   cleaning:
     build:
