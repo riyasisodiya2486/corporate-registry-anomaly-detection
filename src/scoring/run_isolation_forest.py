@@ -3,8 +3,9 @@ import os
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
+from psycopg2.extras import execute_values
 from sklearn.ensemble import IsolationForest
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 
 load_dotenv()
 engine = create_engine(os.environ["DATABASE_URL"])
@@ -18,9 +19,6 @@ FEATURE_COLS = [
 ]
 HIGH_PRIORITY_PERCENTILE = 95
 MODERATE_PERCENTILE = 80
-CHUNK_SIZE = 500  # Neon's pooled connection dropped the request when all 7,384 rows were sent
-                  # as one giant executemany() -- chunking keeps each round-trip small enough
-                  # to succeed while still being far faster than one UPDATE per row.
 
 
 def run():
@@ -49,25 +47,28 @@ def run():
     df["composite_score"] = composite.round(2)
     df["flag_category"] = flag
 
-    records = df[["cluster_id", "isolation_forest_score", "composite_score", "flag_category"]].rename(
-        columns={
-            "cluster_id": "cid",
-            "isolation_forest_score": "ifs",
-            "composite_score": "cs",
-            "flag_category": "fc"
-        }
-    ).to_dict("records")
+    print(f"Writing {len(df):,} rows back via bulk execute_values...")
+    rows = [
+        (int(r.cluster_id), float(r.isolation_forest_score), float(r.composite_score), str(r.flag_category))
+        for r in df.itertuples(index=False)
+    ]
+    
+    sql = """
+        UPDATE cluster_scores AS cs
+        SET isolation_forest_score = v.ifs, composite_score = v.comp, flag_category = v.flag
+        FROM (VALUES %s) AS v (cid, ifs, comp, flag)
+        WHERE cs.cluster_id = v.cid
+    """
+    
+    raw_conn = engine.raw_connection()
+    try:
+        with raw_conn.cursor() as cur:
+            execute_values(cur, sql, rows, page_size=1000)
+        raw_conn.commit()
+    finally:
+        raw_conn.close()
 
-    print(f"Writing {len(records):,} rows back in chunks of {CHUNK_SIZE}...")
-    for i in range(0, len(records), CHUNK_SIZE):
-        chunk = records[i:i + CHUNK_SIZE]
-        with engine.begin() as conn:
-            conn.execute(text("""
-                UPDATE cluster_scores
-                SET isolation_forest_score = :ifs, composite_score = :cs, flag_category = :fc
-                WHERE cluster_id = :cid
-            """), chunk)
-        print(f"  updated {min(i + CHUNK_SIZE, len(records)):,}/{len(records):,} rows")
+    print("SUCCESS: bulk update complete")
 
     print(f"\nSUCCESS: scored {len(df):,} clusters")
     print(f"Thresholds -- high_priority >= {p_high:.2f} | moderate >= {p_mod:.2f}")
