@@ -2,27 +2,161 @@ import pandas as pd
 import streamlit as st
 from queries import get_leaderboard, get_summary, load_cluster_view, search_company
 
-st.set_page_config(page_title="Corporate Registry Anomaly Detection", layout="wide")
+# Page Configuration
+st.set_page_config(
+    page_title="Corporate Registry Intelligence Platform",
+    page_icon="⚖️",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# Professional Dark Mode Enterprise CSS & SVG Icon Library
+st.markdown(
+    """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    /* Global Typography & Background */
+    .main, .stApp {
+        background-color: #0B0F19 !important;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        color: #F8FAFC;
+    }
+
+    /* Sidebar Styling */
+    section[data-testid="stSidebar"] {
+        background-color: #0F172A !important;
+        border-right: 1px solid #1E293B;
+    }
+    section[data-testid="stSidebar"] .stRadio label {
+        color: #94A3B8 !important;
+        font-weight: 500;
+    }
+    section[data-testid="stSidebar"] .stRadio label:hover {
+        color: #F8FAFC !important;
+    }
+
+    /* Headings */
+    h1, h2, h3 {
+        color: #F8FAFC !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.02em;
+    }
+
+    /* Enterprise Metric Cards */
+    div[data-testid="stMetric"] {
+        background: #111827;
+        border: 1px solid #1F2937;
+        border-radius: 10px;
+        padding: 22px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+    div[data-testid="stMetricLabel"] {
+        color: #9CA3AF !important;
+        font-size: 0.8rem !important;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 600 !important;
+    }
+    div[data-testid="stMetricValue"] {
+        color: #F8FAFC !important;
+        font-size: 1.9rem !important;
+        font-weight: 700 !important;
+    }
+
+    /* Buttons */
+    .stButton>button {
+        background-color: #111827 !important;
+        color: #E2E8F0 !important;
+        border: 1px solid #374151 !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        padding: 0.55rem 1.1rem !important;
+        transition: all 0.2s ease !important;
+    }
+    .stButton>button:hover {
+        background-color: #1F2937 !important;
+        border-color: #4B5563 !important;
+        color: #FFFFFF !important;
+        box-shadow: 0 0 12px rgba(59, 130, 246, 0.15);
+    }
+
+    /* Primary Action Buttons */
+    button[kind="primary"], .stFormSubmitButton>button {
+        background-color: #2563EB !important;
+        color: #FFFFFF !important;
+        border: 1px solid #2563EB !important;
+    }
+    button[kind="primary"]:hover, .stFormSubmitButton>button:hover {
+        background-color: #1D4ED8 !important;
+    }
+
+    /* Risk Badges */
+    .badge-high {
+        background-color: rgba(153, 27, 27, 0.25);
+        color: #FCA5A5;
+        border: 1px solid rgba(248, 113, 113, 0.4);
+        padding: 5px 12px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .badge-mod {
+        background-color: rgba(180, 83, 9, 0.25);
+        color: #FCD34D;
+        border: 1px solid rgba(251, 191, 36, 0.4);
+        padding: 5px 12px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .badge-base {
+        background-color: rgba(6, 95, 70, 0.25);
+        color: #6EE7B7;
+        border: 1px solid rgba(52, 211, 153, 0.4);
+        padding: 5px 12px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    /* Dataframe Containers */
+    div[data-testid="stDataFrame"] {
+        border: 1px solid #1F2937;
+        border-radius: 10px;
+        background-color: #111827;
+        overflow: hidden;
+    }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
 
 PAGES = ["Home", "Search", "Cluster Detail", "Leaderboard"]
 
 FLAG_LABELS = {
-    "high_priority": "High priority",
-    "moderate": "Moderate",
-    "baseline": "Baseline (normal range)",
+    "high_priority": "High Priority",
+    "moderate": "Moderate Risk",
+    "baseline": "Baseline Range",
 }
 FEATURE_LABELS = {
-    "address_signal_score": "Shared or very similar addresses",
-    "name_signal_score": "Very similar company names",
-    "timing_signal_score": "Registered around the same time",
-    "capital_similarity_score": "Similar authorized capital",
-    "topology_score": "How tightly the group is connected",
-    "category_homogeneity_score": "Same type of business",
+    "address_signal_score": "Shared / Identical Registered Addresses",
+    "name_signal_score": "Phonetic / Structural Name Similarity",
+    "timing_signal_score": "Synchronized Incorporation Dates",
+    "capital_similarity_score": "Authorized Capital Alignment",
+    "topology_score": "Network Connectivity Density",
+    "category_homogeneity_score": "Industrial Classification Homogeneity",
 }
 EXAMPLE_SEARCHES = ["nidhi", "cotton industry", "enterprises"]
 EXAMPLE_CLUSTERS = {
-    804: "Example: moderate flag (4 companies, one address)",
-    806: "Example: high priority flag (score 100)",
+    804: "Cluster #804 (Moderate Risk • Shared Address)",
+    806: "Cluster #806 (High Priority • Composite 100.0)",
 }
 
 
@@ -37,180 +171,358 @@ def go(page_name, cluster=None, query=None):
 if "nav_override" in st.session_state:
     st.session_state["page"] = st.session_state.pop("nav_override")
 
-st.sidebar.title("Registry Anomaly Detection")
-page = st.sidebar.radio("Go to", PAGES, key="page")
-st.sidebar.caption("New here? Start with Home.")
+# Sidebar
+st.sidebar.markdown(
+    """
+    <div style="padding: 12px 0 20px 0; border-bottom: 1px solid #1E293B; margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <h3 style="color: #F8FAFC; margin: 0; font-size: 1.05rem; font-weight: 600;">ROC Intelligence</h3>
+        </div>
+        <p style="color: #64748B; font-size: 0.75rem; margin: 6px 0 0 34px; text-transform: uppercase; letter-spacing: 0.05em;">Enterprise AML & Audit</p>
+    </div>
+""",
+    unsafe_allow_html=True,
+)
 
-st.warning("Flags are statistical leads for human review. They are NOT findings of wrongdoing.")
+page = st.sidebar.radio("Navigation", PAGES, key="page")
+
+st.sidebar.markdown("---")
+st.sidebar.markdown(
+    """
+    <div style="color: #64748B; font-size: 0.75rem; line-height: 1.5; padding: 4px 0;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <strong>Regulatory Notice:</strong><br>
+        Flags denote automated risk leads for auditor review and do not constitute formal non-compliance findings.
+    </div>
+""",
+    unsafe_allow_html=True,
+)
 
 # ---------------------------------------------------------------- HOME
 if page == "Home":
-    st.title("Corporate Registry Anomaly Detection")
-    st.write(
-        "Some groups of registered companies look unusually alike: the same address, near-identical "
-        "names, registered at nearly the same time. This tool finds such groups (called clusters) in "
-        "the ROC Pune company registry and gives each group a score. A high score means the group "
-        "deserves a closer human look. It does not mean anything illegal happened."
+    st.markdown(
+        """
+        <div style="padding: 8px 0 16px 0;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <h1 style="margin: 0; font-size: 2rem;">Corporate Registry Anomaly Intelligence</h1>
+            </div>
+            <p style="color: #94A3B8; font-size: 1.05rem; max-width: 850px; line-height: 1.5;">
+                Advanced graph topology analysis and unsupervised machine learning models engineered to uncover 
+                synthetic shell entity networks, synchronized formations, and complex structural overlaps across regional corporate registers.
+            </p>
+        </div>
+    """,
+        unsafe_allow_html=True,
     )
+
+    st.markdown("---")
+
     try:
         s = get_summary()
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Companies analysed", f"{s['companies']:,}")
-        c2.metric("Groups found", f"{s['clusters']:,}")
-        c3.metric("High priority", f"{s['high']:,}")
-        c4.metric("Moderate", f"{s['moderate']:,}")
+        c1.metric("Total Entities Audited", f"{s['companies']:,}")
+        c2.metric("Discovered Networks", f"{s['clusters']:,}")
+        c3.metric("High Priority Flags", f"{s['high']:,}")
+        c4.metric("Moderate Risk Flags", f"{s['moderate']:,}")
     except Exception:
-        st.caption("Live statistics are temporarily unavailable.")
+        st.caption("Live aggregate metrics temporarily unavailable.")
 
-    st.subheader("How to use it in 3 steps")
     st.markdown(
-        "1. **Search** for a company by name or CIN.\n"
-        "2. Click **View** next to a result to open its group.\n"
-        "3. Read **why it was flagged** and see the other companies in the same group."
+        "<h3 style='margin-top: 32px; font-size: 1.25rem;'>Operational Architecture</h3>",
+        unsafe_allow_html=True,
     )
+    col_step1, col_step2, col_step3 = st.columns(3)
+    with col_step1:
+        st.markdown(
+            "**1. Entity Indexing & Screening**\n\nQuery parsed entity vectors, normalized strings, and baseline features by name or CIN."
+        )
+    with col_step2:
+        st.markdown(
+            "**2. Multi-Signal Clustering**\n\nIsolate entity clusters evaluated through address matches, temporal proximity, and capitalization alignment."
+        )
+    with col_step3:
+        st.markdown(
+            "**3. Explainable Risk Scoring**\n\nExamine Isolation Forest anomaly scores supported by SHAP feature attribution weights."
+        )
 
-    st.subheader("Try it now")
+    st.markdown("---")
+    st.markdown(
+        "<h3 style='font-size: 1.25rem;'>Quick Navigation & Presets</h3>",
+        unsafe_allow_html=True,
+    )
     a, b = st.columns(2)
     with a:
-        st.write("Example searches")
-        for term in EXAMPLE_SEARCHES:
-            st.button(f"Search '{term}'", key=f"home_s_{term}", on_click=go,
-                      args=("Search",), kwargs={"query": term})
-    with b:
-        st.write("Example groups")
-        for cid, label in EXAMPLE_CLUSTERS.items():
-            st.button(label, key=f"home_c_{cid}", on_click=go,
-                      args=("Cluster Detail",), kwargs={"cluster": cid})
-
-    with st.expander("What do these words mean?"):
         st.markdown(
-            "- **Cluster / group**: companies that the system believes look alike (shared address, "
-            "similar names and so on).\n"
-            "- **Score (0-100)**: how unusual the group is compared with all other groups.\n"
-            "- **High priority / Moderate / Baseline**: the top, middle and normal range of scores.\n"
-            "- **Why it was flagged**: the factors that pushed the score up the most."
+            "<span style='color: #94A3B8; font-size: 0.9rem; font-weight: 600;'>RECOMMENDED SEARCHES</span>",
+            unsafe_allow_html=True,
         )
+        for term in EXAMPLE_SEARCHES:
+            st.button(
+                f"Query registry for '{term}'",
+                key=f"home_s_{term}",
+                on_click=go,
+                args=("Search",),
+                kwargs={"query": term},
+                use_container_width=True,
+            )
+    with b:
+        st.markdown(
+            "<span style='color: #94A3B8; font-size: 0.9rem; font-weight: 600;'>VERIFIED CASE STUDIES</span>",
+            unsafe_allow_html=True,
+        )
+        for cid, label in EXAMPLE_CLUSTERS.items():
+            st.button(
+                f"Inspect {label}",
+                key=f"home_c_{cid}",
+                on_click=go,
+                args=("Cluster Detail",),
+                kwargs={"cluster": cid},
+                use_container_width=True,
+            )
 
 # -------------------------------------------------------------- SEARCH
 elif page == "Search":
-    st.title("Search a Company")
-    st.write("Type part of a company name (for example 'nidhi') or a full CIN. Minimum 3 characters.")
+    st.markdown(
+        """
+        <div>
+            <h1 style="font-size: 1.8rem; margin-bottom: 4px;">Entity Lookup & Screening</h1>
+            <p style="color: #94A3B8; font-size: 0.95rem;">Query indexed records with automated cluster association ranking.</p>
+        </div>
+    """,
+        unsafe_allow_html=True,
+    )
+
     with st.form("search_form"):
-        typed = st.text_input(
-            "Company name or CIN",
-            value=st.session_state.get("search_query", ""),
-            placeholder="e.g. cotton industry  or  U65999PN2020PLN195362",
-        )
-        submitted = st.form_submit_button("Search")
+        col1, col2 = st.columns([5, 1])
+        with col1:
+            typed = st.text_input(
+                "Search Term",
+                value=st.session_state.get("search_query", ""),
+                placeholder="Enter company name keyword or 21-digit CIN...",
+                label_visibility="collapsed",
+            )
+        with col2:
+            submitted = st.form_submit_button(
+                "Search", use_container_width=True
+            )
+
     if submitted:
         st.session_state["search_query"] = typed.strip()
 
     query = st.session_state.get("search_query", "")
     if not query:
-        st.info("Nothing searched yet. Try one of these:")
+        st.markdown(
+            "<p style='color: #94A3B8; margin-top: 16px;'>Select a preset search query to examine results:</p>",
+            unsafe_allow_html=True,
+        )
         cols = st.columns(len(EXAMPLE_SEARCHES))
         for col, term in zip(cols, EXAMPLE_SEARCHES):
-            col.button(term, key=f"srch_{term}", on_click=go, args=("Search",), kwargs={"query": term})
+            col.button(
+                term,
+                key=f"srch_{term}",
+                on_click=go,
+                args=("Search",),
+                kwargs={"query": term},
+                use_container_width=True,
+            )
     elif len(query) < 3:
-        st.info("Please enter at least 3 characters.")
+        st.warning("Please enter a minimum of 3 characters for query execution.")
     else:
         results = search_company(query)
         if results.empty:
-            st.write(f"No matches for '{query}'. Try a shorter or different part of the name.")
+            st.warning(f"No matching registry records found for '{query}'.")
         else:
-            st.caption(
-                f"Showing up to 25 matches for '{query}'. Companies that belong to a group are listed first. "
-                "'Not in any group' is normal: it means no look-alike companies were found."
+            st.markdown(
+                f"<p style='color: #94A3B8; font-size: 0.85rem;'>Displaying top {len(results)} matches. Clustered entities are prioritized.</p>",
+                unsafe_allow_html=True,
             )
-            h = st.columns([4, 2, 2, 1])
-            h[0].markdown("**Company**")
-            h[1].markdown("**Group**")
-            h[2].markdown("**Score / flag**")
             for _, row in results.iterrows():
-                cols = st.columns([4, 2, 2, 1])
-                cols[0].write(row["company_name_raw"])
-                cols[0].caption(f"CIN {row['cin']}  |  {row['company_status']}")
-                has_cluster = pd.notna(row["cluster_id"])
-                cols[1].write(f"Group {int(row['cluster_id'])}" if has_cluster else "Not in any group")
-                if has_cluster and pd.notna(row["composite_score"]):
-                    flag = FLAG_LABELS.get(row["flag_category"], row["flag_category"])
-                    cols[2].write(f"{row['composite_score']:.1f} - {flag}")
-                else:
-                    cols[2].write("-")
-                if has_cluster:
-                    cols[3].button("View", key=f"view_{int(row['entity_id'])}", on_click=go,
-                                   args=("Cluster Detail",), kwargs={"cluster": int(row["cluster_id"])})
+                with st.container():
+                    cols = st.columns([4, 2, 2, 1.5])
+                    cols[0].markdown(
+                        f"**{row['company_name_raw']}**\n\n<span style='color: #94A3B8; font-size: 0.8rem;'>CIN: {row['cin']} &nbsp;|&nbsp; Status: {row['company_status']}</span>",
+                        unsafe_allow_html=True,
+                    )
+                    has_cluster = pd.notna(row["cluster_id"])
+                    cols[1].markdown(
+                        f"**Cluster #{int(row['cluster_id'])}**"
+                        if has_cluster
+                        else "<span style='color: #64748B;'>Unclustered</span>",
+                        unsafe_allow_html=True,
+                    )
+
+                    if has_cluster and pd.notna(row["composite_score"]):
+                        score = row["composite_score"]
+                        flag_cat = row["flag_category"]
+                        badge_class = (
+                            "badge-high"
+                            if flag_cat == "high_priority"
+                            else "badge-mod" if flag_cat == "moderate" else "badge-base"
+                        )
+                        cols[2].markdown(
+                            f"<span class='{badge_class}'>{score:.1f} • {FLAG_LABELS.get(flag_cat, flag_cat)}</span>",
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        cols[2].write("—")
+
+                    if has_cluster:
+                        cols[3].button(
+                            "View Details",
+                            key=f"view_{int(row['entity_id'])}",
+                            on_click=go,
+                            args=("Cluster Detail",),
+                            kwargs={"cluster": int(row["cluster_id"])},
+                            use_container_width=True,
+                        )
+                st.markdown(
+                    "<hr style='margin: 12px 0; border-color: #1F2937;'>",
+                    unsafe_allow_html=True,
+                )
 
 # ------------------------------------------------------ CLUSTER DETAIL
 elif page == "Cluster Detail":
-    st.title("Cluster Detail")
-    st.write("A cluster is a group of companies that look alike. Open one from Search, "
-             "or type a group number below.")
+    st.markdown(
+        """
+        <div>
+            <h1 style="font-size: 1.8rem; margin-bottom: 4px;">Cluster Dependency Inspector</h1>
+            <p style="color: #94A3B8; font-size: 0.95rem;">Examine structural properties, member entities, and attribution vectors.</p>
+        </div>
+    """,
+        unsafe_allow_html=True,
+    )
+
     auto_load = False
     if "selected_cluster" in st.session_state:
-        st.session_state["cluster_input"] = st.session_state.pop("selected_cluster")
+        st.session_state["cluster_input"] = st.session_state.pop(
+            "selected_cluster"
+        )
         auto_load = True
-    cluster_id = st.number_input("Group (cluster) number", min_value=1, step=1, key="cluster_input")
-    load_clicked = st.button("Show this group")
+
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        cluster_id = st.number_input(
+            "Cluster ID Number", min_value=1, step=1, key="cluster_input"
+        )
+    with c2:
+        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+        load_clicked = st.button("Load Cluster", use_container_width=True)
 
     if load_clicked or auto_load:
         data = load_cluster_view(int(cluster_id))
         scores = data["scores"]
         if not scores:
-            st.write("No group found with that number. Use Search to find a valid one.")
+            st.error("No cluster record found matching the specified ID.")
         else:
             members = data["members"]
-            flag = FLAG_LABELS.get(scores.get("flag_category"), scores.get("flag_category"))
+            flag = FLAG_LABELS.get(
+                scores.get("flag_category"), scores.get("flag_category")
+            )
+
+            st.markdown("---")
             m1, m2, m3 = st.columns(3)
-            m1.metric("Score (0-100)", f"{scores['composite_score']:.1f}")
-            m2.metric("Flag", flag)
-            m3.metric("Companies in group", len(members))
+            m1.metric("Composite Risk Score", f"{scores['composite_score']:.1f} / 100")
+            m2.metric("Risk Classification", flag)
+            m3.metric("Cluster Member Count", len(members))
 
             if scores.get("flag_category") == "high_priority":
-                st.error("This group is in the top range of unusual groups. It is a lead for human review.")
+                st.error("High Priority Anomaly: Multiple converging indicators suggest high structural risk.")
             elif scores.get("flag_category") == "moderate":
-                st.warning("This group is somewhat unusual. Worth a look if you have time.")
+                st.warning("Moderate Risk: Notable correlation across several registry attributes.")
             else:
-                st.success("This group is in the normal range.")
+                st.success("Baseline Classification: Group attributes fall within normal statistical limits.")
 
             if len(members) > 1 and members["address_raw"].nunique() == 1:
-                st.info(f"All {len(members)} companies list the same registered address.")
+                st.info("Address Convergence Notice: All member entities share an identical registered address string.")
 
-            st.subheader("Why this was flagged")
-            st.caption("Bigger number = that factor pushed the score up more.")
+            st.markdown(
+                "<h3 style='margin-top: 24px; font-size: 1.2rem;'>Anomaly Attribution Analysis (SHAP)</h3>",
+                unsafe_allow_html=True,
+            )
+            st.caption("Quantifies the marginal impact of each signal feature on the overall composite score.")
             ex = data["explanations"].copy()
             if not ex.empty:
-                ex["Factor"] = ex["feature_name"].map(FEATURE_LABELS).fillna(ex["feature_name"])
-                ex = ex.rename(columns={"shap_value": "Influence", "rank": "Rank"})
-                st.dataframe(ex[["Rank", "Factor", "Influence"]], hide_index=True)
+                ex["Indicator Factor"] = (
+                    ex["feature_name"]
+                    .map(FEATURE_LABELS)
+                    .fillna(ex["feature_name"])
+                )
+                ex = ex.rename(
+                    columns={"shap_value": "Attribution Impact", "rank": "Rank"}
+                )
+                st.dataframe(
+                    ex[["Rank", "Indicator Factor", "Attribution Impact"]],
+                    hide_index=True,
+                    use_container_width=True,
+                )
 
-            st.subheader("Companies in this group")
-            mem = members.rename(columns={
-                "entity_id": "ID", "company_name_raw": "Company", "address_raw": "Address",
-                "company_status": "Status", "authorized_capital": "Authorized capital",
-                "date_of_registration": "Registered on"})
-            st.dataframe(mem, hide_index=True)
-    else:
-        st.info("No group selected yet. Try an example:")
-        for cid, label in EXAMPLE_CLUSTERS.items():
-            st.button(label, key=f"cd_{cid}", on_click=go, args=("Cluster Detail",),
-                      kwargs={"cluster": cid})
+            st.markdown(
+                "<h3 style='margin-top: 24px; font-size: 1.2rem;'>Member Entities Registry</h3>",
+                unsafe_allow_html=True,
+            )
+            mem = members.rename(
+                columns={
+                    "entity_id": "Entity ID",
+                    "company_name_raw": "Company Name",
+                    "address_raw": "Registered Address",
+                    "company_status": "Status",
+                    "authorized_capital": "Authorized Capital",
+                    "date_of_registration": "Registration Date",
+                }
+            )
+            st.dataframe(mem, hide_index=True, use_container_width=True)
 
 # --------------------------------------------------------- LEADERBOARD
 elif page == "Leaderboard":
-    st.title("Top Flagged Groups")
-    st.write("Groups ranked by score, highest first.")
-    options = {"High priority only": "high_priority", "Moderate only": "moderate",
-               "Normal range only": "baseline", "All groups": "all"}
-    choice = st.selectbox("Show", list(options.keys()))
+    st.markdown(
+        """
+        <div>
+            <h1 style="font-size: 1.8rem; margin-bottom: 4px;">Risk Leaderboard</h1>
+            <p style="color: #94A3B8; font-size: 0.95rem;">Ranked inventory of corporate clusters ordered by descending composite anomaly scores.</p>
+        </div>
+    """,
+        unsafe_allow_html=True,
+    )
+
+    options = {
+        "High Priority Only": "high_priority",
+        "Moderate Risk Only": "moderate",
+        "Baseline Range Only": "baseline",
+        "All Flagged Clusters": "all",
+    }
+    choice = st.selectbox("Filter Risk Category", list(options.keys()))
+
     data = get_leaderboard(limit=500)
     if options[choice] != "all":
         data = data[data["flag_category"] == options[choice]]
-    shown = data.rename(columns={"cluster_id": "Group", "cluster_size": "Companies",
-                                 "composite_score": "Score", "flag_category": "Flag"})
-    shown["Flag"] = shown["Flag"].map(FLAG_LABELS).fillna(shown["Flag"])
-    st.dataframe(shown, hide_index=True)
+
+    shown = data.rename(
+        columns={
+            "cluster_id": "Cluster ID",
+            "cluster_size": "Member Count",
+            "composite_score": "Composite Score",
+            "flag_category": "Risk Classification",
+        }
+    )
+    shown["Risk Classification"] = shown["Risk Classification"].map(
+        FLAG_LABELS
+    ).fillna(shown["Risk Classification"])
+
+    st.dataframe(shown, hide_index=True, use_container_width=True)
+
     if not data.empty:
-        pick = st.selectbox("Open a group", data["cluster_id"].tolist())
-        st.button("Open this group", on_click=go, args=("Cluster Detail",),
-                  kwargs={"cluster": int(pick)})
+        st.markdown("---")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            pick = st.selectbox("Select Cluster ID for Inspection", data["cluster_id"].tolist())
+        with col2:
+            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+            st.button(
+                "Open Cluster",
+                on_click=go,
+                args=("Cluster Detail",),
+                kwargs={"cluster": int(pick)},
+                use_container_width=True,
+            )
