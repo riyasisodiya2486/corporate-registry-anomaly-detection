@@ -1,19 +1,33 @@
 import pandas as pd
 import streamlit as st
-from queries import get_leaderboard, load_cluster_view, search_company
+from queries import get_leaderboard, get_summary, load_cluster_view, search_company
 
 st.set_page_config(page_title="Corporate Registry Anomaly Detection", layout="wide")
 
-PAGES = ["Search", "Cluster Detail", "Leaderboard"]
+PAGES = ["Home", "Search", "Cluster Detail", "Leaderboard"]
+
+FLAG_LABELS = {
+    "high_priority": "High priority",
+    "moderate": "Moderate",
+    "baseline": "Baseline (normal range)",
+}
 
 if "nav_override" in st.session_state:
     st.session_state["page"] = st.session_state.pop("nav_override")
 
 page = st.sidebar.radio("Navigate", PAGES, key="page")
 
-st.warning("Structural anomaly flags are statistical leads for human review, not findings of wrongdoing.")
+if page == "Home":
+    st.title("Corporate Registry Anomaly Detection")
+    summary = get_summary()
+    cols = st.columns(4)
+    cols[0].metric("Companies", summary["companies"])
+    cols[1].metric("Clusters", summary["clusters"])
+    cols[2].metric("High priority", summary["high"])
+    cols[3].metric("Moderate", summary["moderate"])
+    st.info("Structural anomaly flags are statistical leads for human review, not findings of wrongdoing.")
 
-if page == "Search":
+elif page == "Search":
     st.title("Search a Company")
     with st.form("search_form"):
         typed = st.text_input("Enter company name or CIN (at least 3 characters)")
@@ -35,7 +49,11 @@ if page == "Search":
                 cols[0].write(row["company_name_raw"])
                 has_cluster = pd.notna(row["cluster_id"])
                 cols[1].write(f"Cluster {int(row['cluster_id'])}" if has_cluster else "No cluster")
-                cols[2].write(f"Score: {row['composite_score']:.1f}" if pd.notna(row["composite_score"]) else "-")
+                cols[2].write(
+                    f"Score: {row['composite_score']:.1f}"
+                    if pd.notna(row["composite_score"])
+                    else "-"
+                )
                 if has_cluster and cols[3].button("View", key=f"view_{int(row['entity_id'])}"):
                     st.session_state["selected_cluster"] = int(row["cluster_id"])
                     st.session_state["nav_override"] = "Cluster Detail"
@@ -53,7 +71,9 @@ elif page == "Cluster Detail":
         data = load_cluster_view(int(cluster_id))
         if data["scores"]:
             st.metric("Composite Score", f"{data['scores']['composite_score']:.1f}")
-            st.metric("Flag Category", data["scores"]["flag_category"])
+            st.metric("Flag Category", FLAG_LABELS.get(
+                data["scores"]["flag_category"], data["scores"]["flag_category"]
+            ))
             st.subheader("Why this was flagged")
             st.dataframe(data["explanations"])
             st.subheader("Cluster Members")

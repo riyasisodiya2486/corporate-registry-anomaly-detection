@@ -62,9 +62,11 @@ def load_cluster_view(cluster_id: int) -> dict:
             SELECT feature_name, shap_value, rank FROM cluster_explanations
             WHERE cluster_id = :cid ORDER BY rank
         """), conn, params={"cid": cluster_id})
-    return {"members": members,
-            "scores": scores.iloc[0].to_dict() if not scores.empty else {},
-            "explanations": explanations}
+    return {
+        "members": members,
+        "scores": scores.iloc[0].to_dict() if not scores.empty else {},
+        "explanations": explanations,
+    }
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -76,3 +78,19 @@ def get_leaderboard(limit: int = 500) -> pd.DataFrame:
             ORDER BY composite_score DESC, cluster_id ASC
             LIMIT :lim
         """), conn, params={"lim": limit})
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def get_summary() -> dict:
+    with get_engine().connect() as conn:
+        companies = conn.execute(text("SELECT COUNT(*) FROM cleaned_entities")).scalar()
+        flags = pd.read_sql(text(
+            "SELECT flag_category, COUNT(*) AS n FROM cluster_scores GROUP BY flag_category"), conn)
+    counts = dict(zip(flags["flag_category"], flags["n"]))
+    return {
+        "companies": int(companies),
+        "clusters": int(sum(counts.values())),
+        "high": int(counts.get("high_priority", 0)),
+        "moderate": int(counts.get("moderate", 0)),
+        "baseline": int(counts.get("baseline", 0)),
+    }
