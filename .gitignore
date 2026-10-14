@@ -42,3 +42,5 @@ data/raw/*.csv
 raw_companies.csv
 raw_chunk_*.csv
 registry_backup.dump
+
+results/snapshot/cleaned_entities.csv

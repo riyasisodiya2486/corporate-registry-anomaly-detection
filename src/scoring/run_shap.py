@@ -1,32 +1,29 @@
 import os
 
+import joblib
 import numpy as np
 import pandas as pd
 import shap
 from dotenv import load_dotenv
-from sklearn.ensemble import IsolationForest
 from sqlalchemy import create_engine, text
 
 load_dotenv()
 engine = create_engine(os.environ["DATABASE_URL"])
 
-FEATURE_COLS = [
-    "address_signal_score", "name_signal_score", "timing_signal_score",
-    "capital_similarity_score", "topology_score", "category_homogeneity_score", "bridge_flag",
-]
 TOP_N_SHAP_FEATURES = 3
 
 
 def run():
-    print("Loading cluster_scores from Neon...")
-    df = pd.read_sql("SELECT * FROM cluster_scores", engine)
+    print("Loading cluster_scores from Neon (ordered by cluster_id)...")
+    df = pd.read_sql("SELECT * FROM cluster_scores ORDER BY cluster_id", engine)
+
+    print("Loading pre-trained Isolation Forest bundle...")
+    bundle = joblib.load("models/iforest.joblib")
+    model = bundle["model"]
+    FEATURE_COLS = bundle["feature_cols"]
+
     X = df[FEATURE_COLS].copy()
     X["bridge_flag"] = X["bridge_flag"].astype(int)
-
-    # Re-fit with the SAME random_state as run_isolation_forest.py so this model is identical
-    # to the one that actually produced composite_score -- explanations must match what was scored.
-    model = IsolationForest(n_estimators=200, contamination="auto", random_state=42)
-    model.fit(X)
 
     # Extract raw anomaly scores (-score_samples) matching composite_score logic
     raw = -model.score_samples(X)
@@ -48,9 +45,8 @@ def run():
 
     print("Writing cluster_explanations...")
     with engine.begin() as conn:
-        conn.execute(text("DROP TABLE IF EXISTS cluster_explanations;"))
         conn.execute(text("""
-            CREATE TABLE cluster_explanations (
+            CREATE TABLE IF NOT EXISTS cluster_explanations (
                 explanation_id SERIAL PRIMARY KEY,
                 cluster_id INTEGER REFERENCES cluster_scores(cluster_id),
                 feature_name TEXT,
@@ -59,6 +55,7 @@ def run():
                 computed_at TIMESTAMP DEFAULT NOW()
             );
         """))
+        conn.execute(text("TRUNCATE TABLE cluster_explanations RESTART IDENTITY;"))
 
     rows = []
     for i, cluster_id in enumerate(df["cluster_id"]):
@@ -71,7 +68,7 @@ def run():
     pd.DataFrame(rows).to_sql("cluster_explanations", engine, if_exists="append", index=False)
     print(f"SUCCESS: wrote {len(rows):,} explanation rows for {len(df):,} clusters")
 
-    top_cluster = df.sort_values("composite_score", ascending=False).iloc[0]["cluster_id"]
+    top_cluster = df.sort_values(["composite_score", "cluster_id"], ascending=[False, True]).iloc[0]["cluster_id"]
     print(f"\nExample -- top explanations for cluster {int(top_cluster)}:")
     example = [r for r in rows if r["cluster_id"] == int(top_cluster)]
     for r in example:

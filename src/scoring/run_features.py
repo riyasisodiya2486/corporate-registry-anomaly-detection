@@ -8,8 +8,8 @@ from sqlalchemy import create_engine, text
 
 sys.path.append(str(Path(__file__).resolve().parent.parent / "blocking"))
 sys.path.append(str(Path(__file__).resolve().parent.parent / "matching"))
-from blocker import generate_candidate_pairs          # noqa: E402
-from scorer import score_candidate_pairs              # noqa: E402
+from src.blocking.blocker import generate_candidate_pairs  # noqa: E402
+from src.matching.scorer import score_candidate_pairs      # noqa: E402
 from features import compute_cluster_features, find_bridge_clusters   # noqa: E402
 
 load_dotenv()
