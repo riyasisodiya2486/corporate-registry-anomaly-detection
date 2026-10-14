@@ -9,10 +9,15 @@ load_dotenv()
 
 
 def _database_url():
+    # Local: .env / environment first. Only touch st.secrets if nothing is found,
+    # because Streamlit draws a red error box when no secrets.toml exists.
+    url = os.environ.get("DATABASE_URL")
+    if url:
+        return url
     try:
         return st.secrets["DATABASE_URL"]
     except Exception:
-        return os.environ.get("DATABASE_URL")
+        return None
 
 
 @st.cache_resource
@@ -20,6 +25,7 @@ def get_engine():
     url = _database_url()
     if not url:
         raise RuntimeError("DATABASE_URL not found. Add it to Streamlit Secrets (deployed) or .env (local).")
+    # pool_pre_ping recovers connections that Neon put to sleep
     return create_engine(url, pool_pre_ping=True, pool_recycle=300)
 
 
@@ -39,7 +45,8 @@ def search_company(query: str) -> pd.DataFrame:
             LEFT JOIN cluster_assignments ca ON e.entity_id = ca.entity_id
             LEFT JOIN cluster_scores cs ON ca.cluster_id = cs.cluster_id
             WHERE e.company_name_normalized ILIKE :contains OR e.cin = :cin
-            ORDER BY COALESCE(e.company_name_normalized ILIKE :prefix, FALSE) DESC,
+            ORDER BY (ca.cluster_id IS NULL) ASC,
+                     COALESCE(e.company_name_normalized ILIKE :prefix, FALSE) DESC,
                      e.company_name_normalized ASC NULLS LAST,
                      e.entity_id ASC
             LIMIT 25
@@ -57,27 +64,27 @@ def load_cluster_view(cluster_id: int) -> dict:
             ORDER BY e.entity_id
         """), conn, params={"cid": cluster_id})
         scores = pd.read_sql(text("SELECT * FROM cluster_scores WHERE cluster_id = :cid"),
-                              conn, params={"cid": cluster_id})
+                             conn, params={"cid": cluster_id})
         explanations = pd.read_sql(text("""
             SELECT feature_name, shap_value, rank FROM cluster_explanations
             WHERE cluster_id = :cid ORDER BY rank
         """), conn, params={"cid": cluster_id})
-    return {
-        "members": members,
-        "scores": scores.iloc[0].to_dict() if not scores.empty else {},
-        "explanations": explanations,
-    }
+    return {"members": members,
+            "scores": scores.iloc[0].to_dict() if not scores.empty else {},
+            "explanations": explanations}
 
 
 @st.cache_data(ttl=600, show_spinner=False)
-def get_leaderboard(limit: int = 500) -> pd.DataFrame:
+def get_leaderboard(flag: str = "all", limit: int = 500) -> pd.DataFrame:
+    # The flag filter runs in SQL BEFORE the limit, so each category gets its own top-N.
     with get_engine().connect() as conn:
         return pd.read_sql(text("""
             SELECT cluster_id, cluster_size, composite_score, flag_category
             FROM cluster_scores
+            WHERE (:flag = 'all' OR flag_category = :flag)
             ORDER BY composite_score DESC, cluster_id ASC
             LIMIT :lim
-        """), conn, params={"lim": limit})
+        """), conn, params={"flag": flag, "lim": limit})
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -87,10 +94,8 @@ def get_summary() -> dict:
         flags = pd.read_sql(text(
             "SELECT flag_category, COUNT(*) AS n FROM cluster_scores GROUP BY flag_category"), conn)
     counts = dict(zip(flags["flag_category"], flags["n"]))
-    return {
-        "companies": int(companies),
-        "clusters": int(sum(counts.values())),
-        "high": int(counts.get("high_priority", 0)),
-        "moderate": int(counts.get("moderate", 0)),
-        "baseline": int(counts.get("baseline", 0)),
-    }
+    return {"companies": int(companies),
+            "clusters": int(sum(counts.values())),
+            "high": int(counts.get("high_priority", 0)),
+            "moderate": int(counts.get("moderate", 0)),
+            "baseline": int(counts.get("baseline", 0))} 

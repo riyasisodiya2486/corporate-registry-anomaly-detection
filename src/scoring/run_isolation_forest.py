@@ -1,10 +1,14 @@
+import hashlib
 import os
+from pathlib import Path
 
+import joblib
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
+from psycopg2.extras import execute_values
 from sklearn.ensemble import IsolationForest
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 
 load_dotenv()
 engine = create_engine(os.environ["DATABASE_URL"])
@@ -18,11 +22,14 @@ FEATURE_COLS = [
 ]
 HIGH_PRIORITY_PERCENTILE = 95
 MODERATE_PERCENTILE = 80
+MODEL_PATH = Path("models/iforest.joblib")
 
 
 def run():
     print("Loading cluster_scores from Neon...")
-    df = pd.read_sql("SELECT * FROM cluster_scores", engine)
+    # ORDER BY is essential: Isolation Forest samples rows by position, so a different
+    # row order gives different trees even with a fixed random_state.
+    df = pd.read_sql("SELECT * FROM cluster_scores ORDER BY cluster_id", engine)
     print(f"{len(df):,} clusters loaded.")
 
     X = df[FEATURE_COLS].copy()
@@ -32,12 +39,19 @@ def run():
     model = IsolationForest(n_estimators=200, contamination="auto", random_state=42)
     model.fit(X)
 
+    # Save the exact model so run_shap.py explains the same model that produced the scores.
+    MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump({"model": model, "feature_cols": FEATURE_COLS}, MODEL_PATH)
+    print(f"Saved model to {MODEL_PATH}")
+
     # sklearn convention: score_samples is LOWER for more abnormal points. Negate so that,
-    # in our own scores, higher always means more anomalous -- matches every score elsewhere
-    # in this project (address_signal_score, name_signal_score, etc. are all "higher = more unusual").
+    # in our own scores, higher always means more anomalous.
     raw = -model.score_samples(X)
     composite = 100 * (raw - raw.min()) / (raw.max() - raw.min())
     composite = np.clip(composite, 0, 100)
+
+    fingerprint = hashlib.md5(np.round(composite, 6).tobytes()).hexdigest()
+    print("Score fingerprint:", fingerprint)
 
     p_high, p_mod = np.percentile(composite, [HIGH_PRIORITY_PERCENTILE, MODERATE_PERCENTILE])
     flag = np.select([composite >= p_high, composite >= p_mod], ["high_priority", "moderate"], default="baseline")
@@ -46,45 +60,26 @@ def run():
     df["composite_score"] = composite.round(2)
     df["flag_category"] = flag
 
-    print(f"Writing {len(df):,} rows back via staged bulk update...")
-    update_df = df[[
-        "cluster_id",
-        "isolation_forest_score",
-        "composite_score",
-        "flag_category",
-    ]]
+    print(f"Writing {len(df):,} rows back via bulk execute_values...")
+    rows = [
+        (int(r.cluster_id), float(r.isolation_forest_score), float(r.composite_score), str(r.flag_category))
+        for r in df.itertuples(index=False)
+    ]
 
-    with engine.begin() as conn:
-        conn.execute(
-            text("""
-                CREATE TEMP TABLE cluster_scores_staging (
-                    cluster_id INTEGER,
-                    isolation_forest_score FLOAT,
-                    composite_score FLOAT,
-                    flag_category TEXT
-                ) ON COMMIT DROP;
-            """)
-        )
+    sql = """
+        UPDATE cluster_scores AS cs
+        SET isolation_forest_score = v.ifs, composite_score = v.comp, flag_category = v.flag
+        FROM (VALUES %s) AS v (cid, ifs, comp, flag)
+        WHERE cs.cluster_id = v.cid
+    """
 
-        update_df.to_sql(
-            "cluster_scores_staging",
-            conn,
-            if_exists="append",
-            index=False,
-            method="multi",
-            chunksize=1000,
-        )
-
-        conn.execute(
-            text("""
-                UPDATE cluster_scores cs
-                SET isolation_forest_score = s.isolation_forest_score,
-                    composite_score = s.composite_score,
-                    flag_category = s.flag_category
-                FROM cluster_scores_staging s
-                WHERE cs.cluster_id = s.cluster_id;
-            """)
-        )
+    raw_conn = engine.raw_connection()
+    try:
+        with raw_conn.cursor() as cur:
+            execute_values(cur, sql, rows, page_size=1000)
+        raw_conn.commit()
+    finally:
+        raw_conn.close()
 
     print("SUCCESS: bulk update complete")
 
@@ -92,7 +87,7 @@ def run():
     print(f"Thresholds -- high_priority >= {p_high:.2f} | moderate >= {p_mod:.2f}")
     print(df["flag_category"].value_counts())
     print("\nTop 10 highest composite_score clusters:")
-    print(df.sort_values("composite_score", ascending=False)
+    print(df.sort_values(["composite_score", "cluster_id"], ascending=[False, True])
             .head(10)[["cluster_id", "cluster_size", "composite_score", "flag_category"] + FEATURE_COLS]
             .to_string(index=False))
 
