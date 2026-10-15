@@ -164,10 +164,25 @@ FEATURE_LABELS = {
     "category_homogeneity_score": "Same Type of Business",
 }
 EXAMPLE_SEARCHES = ["nidhi", "cotton industry", "enterprises"]
-EXAMPLE_CLUSTERS = {
-    804: "Cluster #804 (example: shared address)",
-    806: "Cluster #806 (example: top score)",
-}
+
+
+def get_example_clusters():
+    """One example cluster per category, taken live from the database.
+
+    Nothing is hardcoded: the label always shows the real flag and score.
+    If the database is unreachable, returns {} and the example buttons are hidden.
+    """
+    examples = {}
+    try:
+        for flag in ["high_priority", "moderate", "baseline"]:
+            top = get_leaderboard(flag=flag, limit=1)
+            if not top.empty:
+                cid = int(top.iloc[0]["cluster_id"])
+                score = float(top.iloc[0]["composite_score"])
+                examples[cid] = f"Cluster #{cid} ({FLAG_LABELS[flag]}, score {score:.1f})"
+    except Exception:
+        return {}
+    return examples
 
 
 def go(page_name, cluster=None, query=None):
@@ -283,16 +298,18 @@ if page == "Home":
                 use_container_width=True,
             )
     with b:
-        st.markdown("<div style='font-size: 0.85rem; color: #94A3B8; margin-bottom: 8px;'>Example clusters</div>", unsafe_allow_html=True)
-        for cid, label in EXAMPLE_CLUSTERS.items():
-            st.button(
-                f"Open {label}",
-                key=f"home_c_{cid}",
-                on_click=go,
-                args=("Cluster Detail",),
-                kwargs={"cluster": cid},
-                use_container_width=True,
-            )
+        examples = get_example_clusters()
+        if examples:
+            st.markdown("<div style='font-size: 0.85rem; color: #94A3B8; margin-bottom: 8px;'>Example clusters (live from the data)</div>", unsafe_allow_html=True)
+            for cid, label in examples.items():
+                st.button(
+                    f"Open {label}",
+                    key=f"home_c_{cid}",
+                    on_click=go,
+                    args=("Cluster Detail",),
+                    kwargs={"cluster": cid},
+                    use_container_width=True,
+                )
 
     with st.expander("What do these words mean?"):
         st.markdown(
@@ -474,15 +491,19 @@ elif page == "Cluster Detail":
             )
             st.dataframe(mem, hide_index=True, use_container_width=True)
     else:
-        st.info("No cluster selected yet. Try an example:")
-        for cid, label in EXAMPLE_CLUSTERS.items():
-            st.button(
-                label,
-                key=f"cd_{cid}",
-                on_click=go,
-                args=("Cluster Detail",),
-                kwargs={"cluster": cid},
-            )
+        examples = get_example_clusters()
+        if examples:
+            st.info("No cluster selected yet. Try an example:")
+            for cid, label in examples.items():
+                st.button(
+                    label,
+                    key=f"cd_{cid}",
+                    on_click=go,
+                    args=("Cluster Detail",),
+                    kwargs={"cluster": cid},
+                )
+        else:
+            st.info("No cluster selected yet. Type a cluster number above, or use Search.")
 
 # --------------------------------------------------------- LEADERBOARD
 elif page == "Leaderboard":
