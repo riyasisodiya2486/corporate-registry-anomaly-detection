@@ -1,14 +1,14 @@
 ## Audit Precision & Human Validation
 
-To evaluate model precision, explainability alignment, and edge-case behavior, we conducted an expanded manual audit across 40 clusters ($n=20$ top-flagged clusters vs. $n=20$ randomized baseline clusters).
+We conducted a manual audit of 40 clusters, comprising 20 top-flagged clusters and 20 baseline clusters. The findings below describe judgments recorded in the audit sample and should be interpreted as sample-specific assessments, not independent verification of fraudulent activity.
 
 ### Precision Findings
-The model achieved **90.0% precision** ($n=18/20$) on top-flagged clusters. True positive detections spanned three primary structural typologies:
+The model achieved **90.0% precision** ($n=18/20$) on top-flagged clusters. Cases judged plausible by the auditor spanned three primary structural typologies:
 1. **Shadow Nidhi Financial Networks** (e.g., Cluster 806): Cross-taluka entities sharing identical naming patterns and capital structures.
 2. **Rapid SPV Shell Networks** (e.g., Cluster 1585): Multi-entity incorporations within tight 4-day time windows sharing care-of ("C/O") addresses.
 3. **High Operational Churn Co-locations** (e.g., Cluster 629): Co-located entities exhibiting mixed corporate statuses (struck off vs. active).
 
-The two false positives ($n=2/20$, Clusters 739 and 1714) stemmed from policy artifacts—specifically Farmer Producer Companies (FPCs) incorporated under state agricultural schemes sharing local administrative address nodes.
+The two cases judged not plausible ($n=2/20$, Clusters 739 and 1714) were associated with potential policy-related artifacts, specifically Farmer Producer Companies (FPCs) incorporated under state agricultural schemes sharing local administrative address nodes.
 
 ### Baseline False-Negative Analysis & Limitations
 Evaluation of the baseline sample ($n=20$) confirmed that **95.0%** ($n=19/20$) of non-flagged clusters were appropriately categorized as standard commercial operations, family legacy entities, or routine LLP restructurings.
