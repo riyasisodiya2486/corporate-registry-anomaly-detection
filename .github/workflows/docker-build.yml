@@ -5,6 +5,9 @@ name: Build Docker Images
     branches:
       - main
       - yashika-infra
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
