@@ -77,6 +77,16 @@ the difference is normal timing variation.
 
 ## Audit Plausibility Review (results-v1)
 
+We conducted a manual audit of 40 clusters, comprising 20 top-flagged clusters and 20 baseline clusters. The findings below describe judgments recorded in the audit sample and should be interpreted as sample-specific assessments, not independent verification of fraudulent activity.
+
+### Precision Findings
+The model achieved **90.0% precision** ($n=18/20$) on top-flagged clusters. Cases judged plausible by the auditor spanned three primary structural typologies:
+1. **Shadow Nidhi Financial Networks** (e.g., Cluster 806): Cross-taluka entities sharing identical naming patterns and capital structures.
+2. **Rapid SPV Shell Networks** (e.g., Cluster 1585): Multi-entity incorporations within tight 4-day time windows sharing care-of ("C/O") addresses.
+3. **High Operational Churn Co-locations** (e.g., Cluster 629): Co-located entities exhibiting mixed corporate statuses (struck off vs. active).
+
+The two cases judged not plausible ($n=2/20$, Clusters 739 and 1714) were associated with potential policy-related artifacts, specifically Farmer Producer Companies (FPCs) incorporated under state agricultural schemes sharing local administrative address nodes.
+
 Sample: 20 high-priority and 20 baseline clusters drawn with random_state=42
 from the final run (results/audit_sample.csv). Rule: docs/paper_draft/audit_rule.md,
 written before review and amended during review (see its Amendments section).
@@ -102,6 +112,25 @@ An earlier audit on an older run (docs/manual_audit_day7.md) noted cluster 443
 post office address, which suggests the address signal under-weights shared
 postal landmarks. It is not part of this sample.
 
+## Post-hoc Data-Quality Analysis (results-v1 snapshot)
+
+Two rules were fixed before running (src/artifact_counts.py):
+(1) Duplicate: two members of a cluster have the same normalized name and
+registration dates within 3 days.
+(2) Possible placeholder or shared-building address: the same address string
+appears in 3 or more different clusters.
+
+Share of clusters matching either rule: high priority 72 of 370 (19.5%),
+moderate 106 of 1,107 (9.6%), baseline 204 of 5,907 (3.5%). Counts per rule
+are in results/artifact_counts.csv. Matching clusters are about 5.6 times more
+common among high-priority than baseline clusters, so the ranking favours
+duplicate records and repeated addresses. Typographic duplicates are not
+detected, so the duplicate count is a lower bound; the address rule can also
+match genuine shared buildings. About 80% of high-priority clusters match
+neither rule, so these artifacts explain part, not all, of the weak result in
+the plausibility audit. This analysis was run after the audit and did not
+change the pipeline, scores or tag.
+
 ## Limitations
 
 - Small audit sample, no ground truth, no independent second rating
@@ -114,3 +143,4 @@ postal landmarks. It is not part of this sample.
 - Single registry office (ROC Pune); results may not generalise
 - The database stores only the top 3 SHAP factors per cluster
 - The deployed app is a public demo showing real company names; it uses a read-only database role (app_reader) and carries a visible "leads, not findings" notice
+- A deduplication step before scoring (exact and fuzzy duplicate records, placeholder-address filtering).
