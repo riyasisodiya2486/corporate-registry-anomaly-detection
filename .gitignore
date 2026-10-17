@@ -45,3 +45,4 @@ registry_backup.dump
 results/snapshot/cleaned_entities.csv
 
 results/snapshot/cleaned_entities.csv
+results/audit_view.txt

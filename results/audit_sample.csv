@@ -1,41 +1,41 @@
-cluster_id,cluster_size,composite_score,flag_category,audit_group,human_verdict,notes
-806,4,100.0,high_priority,top_flagged,plausible,"Shadow Nidhi network; identical naming across talukas"
-1585,3,100.0,high_priority,top_flagged,plausible,"Rapid SPV creation; 4-day window via C/O addresses"
-1714,3,98.97,high_priority,top_flagged,not plausible,"Government scheme artifact; Farmer Producer Companies wave"
-739,4,98.04,high_priority,top_flagged,not plausible,"Government scheme artifact; Farmer Producer Companies wave"
-629,4,97.7,high_priority,top_flagged,plausible,"Address co-location & operational churn; 2 Strike Off and 2 Active"
-6141,2,95.18,high_priority,top_flagged,,
-1700,3,95.04,high_priority,top_flagged,,
-655,4,94.8,high_priority,top_flagged,,
-6285,2,94.52,high_priority,top_flagged,,
-1500,3,94.45,high_priority,top_flagged,,
-416,5,92.91,high_priority,top_flagged,,
-1554,3,92.46,high_priority,top_flagged,,
-1726,3,92.24,high_priority,top_flagged,,
-1511,3,91.83,high_priority,top_flagged,,
-1736,3,91.83,high_priority,top_flagged,,
-1202,3,91.48,high_priority,top_flagged,,
-6069,2,91.22,high_priority,top_flagged,,
-1341,3,90.95,high_priority,top_flagged,,
-1512,3,90.51,high_priority,top_flagged,,
-1241,3,90.17,high_priority,top_flagged,,
-4064,2,26.86,baseline,baseline_sample,,
-5917,2,36.17,baseline,baseline_sample,,
-5317,2,44.02,baseline,baseline_sample,,
-5503,2,51.35,baseline,baseline_sample,,
-2167,2,42.62,baseline,baseline_sample,,
-1382,3,41.92,baseline,baseline_sample,,
-443,5,44.16,baseline,baseline_sample,,
-7030,2,23.83,baseline,baseline_sample,,
-3769,2,10.86,baseline,baseline_sample,,
-1225,3,44.28,baseline,baseline_sample,,
-2303,2,34.55,baseline,baseline_sample,,
-3210,2,47.32,baseline,baseline_sample,,
-3096,2,35.54,baseline,baseline_sample,,
-4261,2,56.38,baseline,baseline_sample,,
-2340,2,7.39,baseline,baseline_sample,,
-3732,2,16.25,baseline,baseline_sample,,
-5264,2,21.76,baseline,baseline_sample,,
-1592,3,24.48,baseline,baseline_sample,,
-4651,2,8.57,baseline,baseline_sample,,
-2029,2,6.66,baseline,baseline_sample,,
+cluster_id,cluster_size,composite_score,flag_category,top_factors,judgement,reason
+6777,2,78.06,high_priority,"timing_signal_score, address_signal_score, capital_similarity_score",no,"Duplicate/parallel record of the same company incorporating on consecutive days with identical capital and minor address variations"
+337,5,79.63,high_priority,"topology_score, category_homogeneity_score, capital_similarity_score",yes,"5 entities with one name stem at one building; mixed statuses; borderline (could be a family group)"
+148,8,85.74,high_priority,"topology_score, name_signal_score, category_homogeneity_score",yes,"8 unrelated business types at one village address; entities registered 2014-2026"
+6619,2,74.46,high_priority,"timing_signal_score, address_signal_score, capital_similarity_score",no,"ARTIFACT: same company recorded twice (same registration date)"
+507,4,75.97,high_priority,"topology_score, capital_similarity_score, category_homogeneity_score",no,"ARTIFACT: three share a placeholder address; the fourth is an LLP restructure of one of them"
+1863,2,74.84,high_priority,"timing_signal_score, address_signal_score, bridge_flag",no,"Parallel corporate structure or restructuring event occurring on the same registration date with a major capital divergence"
+694,4,80.01,high_priority,"topology_score, capital_similarity_score, category_homogeneity_score",no,"Unrelated businesses in one industrial area; years apart; ordinary"
+1084,3,83.23,high_priority,"topology_score, address_signal_score, timing_signal_score",yes,"Same shop address and name stem; registered within 5 months in 2024"
+6505,2,80.62,high_priority,"timing_signal_score, name_signal_score, capital_similarity_score",yes,"Same shop address; a Nidhi company and a services company registered 1 month apart"
+1135,3,82.09,high_priority,"topology_score, capital_similarity_score, address_signal_score",no,"Two old strike-off companies at one address (1989, 1993); the third is at a different address, 2026; borderline"
+1849,2,74.27,high_priority,"timing_signal_score, address_signal_score, bridge_flag",no,"ARTIFACT: same company recorded twice (same registration date), placeholder address"
+409,5,81.0,high_priority,"topology_score, address_signal_score, timing_signal_score",yes,"Two companies at one address registered 2 weeks apart in 2026; others share a common devotional name phrase; borderline"
+1341,3,90.95,high_priority,"topology_score, capital_similarity_score, address_signal_score",no,"Name similarity only; one member has the placeholder address; the other two are 2 years apart; borderline"
+501,4,84.08,high_priority,"topology_score, timing_signal_score, capital_similarity_score",yes,"4 entities with one name stem at one address, registered within 6 weeks, same capital"
+1369,3,82.43,high_priority,"topology_score, capital_similarity_score, name_signal_score",no,"Different villages, different years; only the capital is the same"
+5455,2,81.34,high_priority,"timing_signal_score, address_signal_score, capital_similarity_score",no,"Two producer companies in one village registered 2 days apart; looks like the agri-scheme pattern; borderline"
+27,19,82.08,high_priority,"topology_score, capital_similarity_score, category_homogeneity_score",yes,"19 entities at one address, most registered within weeks in 2025, same capital"
+1844,2,78.8,high_priority,"timing_signal_score, address_signal_score, capital_similarity_score",no,"ARTIFACT: same company recorded twice (name typo, 2 days apart), one placeholder address"
+6839,2,74.51,high_priority,"timing_signal_score, address_signal_score, capital_similarity_score",no,"ARTIFACT: same company recorded twice (same name, registered 17 days apart in 1954)"
+900,3,78.67,high_priority,"topology_score, capital_similarity_score, address_signal_score",no,"Two share an address 5 years apart; generic name word; third is elsewhere; borderline"
+2247,2,11.61,baseline,"capital_similarity_score, timing_signal_score, topology_score",no,"Company converted to LLP at the same address; ordinary restructure"
+6898,2,34.91,baseline,"capital_similarity_score, timing_signal_score, topology_score",no,"Old related firms from 1992 and 1994 at one address; ordinary legacy group"
+6368,2,50.58,baseline,"name_signal_score, timing_signal_score, address_signal_score",no,"Same taluka only; different businesses, years apart"
+4318,2,9.79,baseline,"timing_signal_score, capital_similarity_score, address_signal_score",no,"Same flat and name stem but 13 months apart; borderline"
+4713,2,33.84,baseline,"timing_signal_score, name_signal_score, address_signal_score",yes,"Same address, same name stem, same registration date"
+3973,2,34.09,baseline,"capital_similarity_score, name_signal_score, address_signal_score",no,"Same office and name stem, 10 months apart, both struck off; borderline"
+2716,2,35.79,baseline,"capital_similarity_score, timing_signal_score, name_signal_score",no,"Same flat, name stem, 1 year apart, both struck off; borderline"
+1372,3,48.83,baseline,"topology_score, timing_signal_score, bridge_flag",no,"Three unrelated businesses in one taluka, different addresses"
+6929,2,44.15,baseline,"address_signal_score, timing_signal_score, bridge_flag",no,"Two producer companies in different districts; only the names are similar"
+527,4,25.57,baseline,"category_homogeneity_score, timing_signal_score, address_signal_score",no,"One established business group at its own building, 2004-2012; ordinary"
+4126,2,32.62,baseline,"timing_signal_score, name_signal_score, address_signal_score",yes,"Same flat, name stem, same capital, registered 12 days apart in 2025"
+7028,2,31.02,baseline,"address_signal_score, timing_signal_score, capital_similarity_score",no,"Different addresses; the LLP looks like a successor of the old company"
+6116,2,37.69,baseline,"capital_similarity_score, timing_signal_score, name_signal_score",no,"Same market address and name stem but 2005 and 2008; ordinary legacy group"
+2495,2,52.77,baseline,"timing_signal_score, name_signal_score, address_signal_score",yes,"Same flat, name stem, two LLPs registered 12 days apart in 2025"
+3337,2,25.94,baseline,"capital_similarity_score, name_signal_score, timing_signal_score",no,"Same address and name stem but 1995 and 2003; ordinary family group"
+898,3,27.05,baseline,"category_homogeneity_score, capital_similarity_score, timing_signal_score",no,"Same address and name stem across 2012-2014; mostly struck off; borderline"
+1946,2,50.28,baseline,"timing_signal_score, capital_similarity_score, address_signal_score",yes,"Same plot, same sector, same capital, registered 9 weeks apart; borderline"
+4826,2,23.65,baseline,"timing_signal_score, topology_score, bridge_flag",no,"Unrelated companies in the same pincode"
+5340,2,49.3,baseline,"name_signal_score, timing_signal_score, capital_similarity_score",no,"Same c/o person and address, but different names and 1 year apart; borderline"
+962,3,51.68,baseline,"timing_signal_score, bridge_flag, name_signal_score",yes,"Three LLPs, same office, same registration date, one name stem"
