@@ -1,4 +1,6 @@
-"""Yashika. Duplicate-record and placeholder-address flags per cluster. Thresholds fixed before looking."""
+"""Duplicate-record and placeholder-address analysis for explicit V2 inputs."""
+import argparse
+import os
 from difflib import SequenceMatcher
 from itertools import combinations
 from pathlib import Path
@@ -10,56 +12,179 @@ DATE_DAYS = 3
 MIN_ADDR_CLUSTERS = 3
 VIRTUAL = r"virtual office|co-?working|cowork|business cent(?:er|re)|shared office"
 
-S = Path("results/snapshot")
-OUT = Path("results/v2")
-OUT.mkdir(parents=True, exist_ok=True)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "results" / "v2"
+INPUT_FILES = ("cleaned_entities.csv", "cluster_assignments.csv", "cluster_scores.csv")
+ENTITY_COLUMNS = {
+    "entity_id",
+    "company_name_normalized",
+    "pincode",
+    "date_of_registration",
+}
+ASSIGNMENT_COLUMNS = {"entity_id", "cluster_id"}
+SCORE_COLUMNS = {"cluster_id", "flag_category", "composite_score"}
 
-header = pd.read_csv(S / "cleaned_entities.csv", nrows=0).columns
-addr_col = "address_normalized" if "address_normalized" in header else "address_raw"
-ent = pd.read_csv(S / "cleaned_entities.csv",
-                  usecols=["entity_id", "company_name_normalized", addr_col, "pincode", "date_of_registration"])
-asg = pd.read_csv(S / "cluster_assignments.csv")[["entity_id", "cluster_id"]]
-sc = pd.read_csv(S / "cluster_scores.csv")[["cluster_id", "flag_category", "composite_score"]]
 
-m = asg.merge(ent, on="entity_id")
-m["date"] = pd.to_datetime(m.date_of_registration, errors="coerce")
-m["addr_key"] = (m[addr_col].fillna("").astype(str).str.lower()
-                   .str.replace(r"[^a-z0-9 ]", " ", regex=True)
-                   .str.replace(r"\s+", " ", regex=True).str.strip())
+def validate_input_dir(input_dir):
+    """Validate a V2 input directory using headers only; never choose V1 implicitly."""
+    input_dir = Path(input_dir).expanduser()
+    resolved = input_dir.resolve()
+    results_root = (PROJECT_ROOT / "results").resolve()
+    try:
+        relative_to_results = resolved.relative_to(results_root)
+    except ValueError:
+        relative_to_results = None
+    if relative_to_results and (
+        relative_to_results.parts[0] == "snapshot"
+        or relative_to_results.parts[0].startswith("snapshot_backup_")
+    ):
+        raise ValueError("V1 snapshot and backup directories cannot be used as V2 input")
 
-per_addr = m.groupby("addr_key").cluster_id.nunique()
-m["addr_clusters"] = m.addr_key.map(per_addr)
-zero_pin = pd.to_numeric(m.pincode, errors="coerce").fillna(0) == 0
-m["placeholder"] = ((m.addr_clusters >= MIN_ADDR_CLUSTERS) | zero_pin
-                    | m.addr_key.str.startswith("na ") | (m.addr_key == ""))
-m["virtual_kw"] = m.addr_key.str.contains(VIRTUAL, regex=True)
+    paths = {name: input_dir / name for name in INPUT_FILES}
+    missing_files = [str(path) for path in paths.values() if not path.is_file()]
+    if missing_files:
+        raise FileNotFoundError("Missing required V2 input file(s): " + ", ".join(missing_files))
 
-rows = []
-for cid, g in m.groupby("cluster_id"):
-    items = list(g[["entity_id", "company_name_normalized", "date"]].itertuples(index=False))
-    for a, b in combinations(items, 2):
-        if pd.isna(a.date) or pd.isna(b.date) or abs((a.date - b.date).days) > DATE_DAYS:
-            continue
-        na, nb = str(a.company_name_normalized), str(b.company_name_normalized)
-        r = 1.0 if na == nb else SequenceMatcher(None, na, nb).ratio()
-        if r >= NAME_RATIO:
-            rows.append({"cluster_id": cid, "entity_a": a.entity_id, "entity_b": b.entity_id, "name_ratio": round(r, 3)})
-dups = pd.DataFrame(rows, columns=["cluster_id", "entity_a", "entity_b", "name_ratio"])
-dups.to_csv(OUT / "dup_pairs.csv", index=False)
+    headers = {name: set(pd.read_csv(path, nrows=0).columns) for name, path in paths.items()}
+    address_column = next(
+        (column for column in ("address_normalized", "address_raw")
+         if column in headers["cleaned_entities.csv"]),
+        None,
+    )
+    required_by_file = {
+        "cleaned_entities.csv": ENTITY_COLUMNS,
+        "cluster_assignments.csv": ASSIGNMENT_COLUMNS,
+        "cluster_scores.csv": SCORE_COLUMNS,
+    }
+    missing_columns = {
+        filename: sorted(required - headers[filename])
+        for filename, required in required_by_file.items()
+        if required - headers[filename]
+    }
+    if address_column is None:
+        missing_columns["cleaned_entities.csv"] = sorted(
+            set(missing_columns.get("cleaned_entities.csv", []))
+            | {"address_normalized or address_raw"}
+        )
+    if missing_columns:
+        details = "; ".join(f"{name}: {columns}" for name, columns in missing_columns.items())
+        raise ValueError("Missing required V2 column(s): " + details)
+    return paths, address_column
 
-g = m.groupby("cluster_id").agg(has_placeholder=("placeholder", "any"), virtual_share=("virtual_kw", "mean"),
-                                max_addr_clusters=("addr_clusters", "max")).reset_index()
-dq = sc.merge(g, on="cluster_id", how="left")
-dq["n_dup_pairs"] = dq.cluster_id.map(dups.groupby("cluster_id").size()).fillna(0).astype(int)
-dq["has_duplicate"] = dq.n_dup_pairs > 0
-dq["artifact"] = dq.has_duplicate | dq.has_placeholder
-dq.to_csv(OUT / "cluster_dq.csv", index=False)
 
-# Look at these by hand before trusting the placeholder rule (keep local, in .gitignore)
-per_addr.sort_values(ascending=False).head(50).rename("clusters").reset_index().to_csv(
-    OUT / "placeholder_top50.csv", index=False)
+def load_inputs(input_dir):
+    """Validate all input files before loading their full contents."""
+    paths, address_column = validate_input_dir(input_dir)
+    entities = pd.read_csv(
+        paths["cleaned_entities.csv"],
+        usecols=["entity_id", "company_name_normalized", address_column,
+                 "pincode", "date_of_registration"],
+    )
+    assignments = pd.read_csv(
+        paths["cluster_assignments.csv"], usecols=["entity_id", "cluster_id"]
+    )
+    scores = pd.read_csv(
+        paths["cluster_scores.csv"],
+        usecols=["cluster_id", "flag_category", "composite_score"],
+    )
+    return entities, assignments, scores, address_column
 
-out = dq.groupby("flag_category").agg(clusters=("cluster_id", "size"), duplicate=("has_duplicate", "sum"),
-                                      placeholder=("has_placeholder", "sum"), artifact=("artifact", "sum"))
-out["artifact_pct"] = (100 * out.artifact / out.clusters).round(1)
-print(out)
+
+def analyze_data_quality(entities, assignments, scores, address_column):
+    """Compute duplicate and placeholder indicators without reading or writing files."""
+    merged = assignments.merge(entities, on="entity_id")
+    merged["date"] = pd.to_datetime(merged.date_of_registration, errors="coerce")
+    merged["addr_key"] = (
+        merged[address_column].fillna("").astype(str).str.lower()
+        .str.replace(r"[^a-z0-9 ]", " ", regex=True)
+        .str.replace(r"\s+", " ", regex=True).str.strip()
+    )
+
+    address_clusters = merged.groupby("addr_key").cluster_id.nunique()
+    merged["addr_clusters"] = merged.addr_key.map(address_clusters)
+    zero_pin = pd.to_numeric(merged.pincode, errors="coerce").fillna(0) == 0
+    merged["placeholder"] = (
+        (merged.addr_clusters >= MIN_ADDR_CLUSTERS)
+        | zero_pin
+        | merged.addr_key.str.startswith("na ")
+        | merged.addr_key.eq("")
+    )
+    merged["virtual_kw"] = merged.addr_key.str.contains(VIRTUAL, regex=True)
+
+    duplicate_rows = []
+    for cluster_id, group in merged.groupby("cluster_id"):
+        items = list(
+            group[["entity_id", "company_name_normalized", "date"]]
+            .itertuples(index=False)
+        )
+        for first, second in combinations(items, 2):
+            if pd.isna(first.date) or pd.isna(second.date):
+                continue
+            if abs((first.date - second.date).days) > DATE_DAYS:
+                continue
+            name_a, name_b = str(first.company_name_normalized), str(second.company_name_normalized)
+            ratio = 1.0 if name_a == name_b else SequenceMatcher(None, name_a, name_b).ratio()
+            if ratio >= NAME_RATIO:
+                duplicate_rows.append({
+                    "cluster_id": cluster_id,
+                    "entity_a": first.entity_id,
+                    "entity_b": second.entity_id,
+                    "name_ratio": round(ratio, 3),
+                })
+    duplicates = pd.DataFrame(
+        duplicate_rows, columns=["cluster_id", "entity_a", "entity_b", "name_ratio"]
+    )
+
+    cluster_flags = merged.groupby("cluster_id").agg(
+        has_placeholder=("placeholder", "any"),
+        virtual_share=("virtual_kw", "mean"),
+        max_addr_clusters=("addr_clusters", "max"),
+    ).reset_index()
+    quality = scores.merge(cluster_flags, on="cluster_id", how="left")
+    duplicate_counts = duplicates.groupby("cluster_id").size()
+    quality["n_dup_pairs"] = quality.cluster_id.map(duplicate_counts).fillna(0).astype(int)
+    quality["has_duplicate"] = quality.n_dup_pairs > 0
+    quality["artifact"] = quality.has_duplicate | quality.has_placeholder.fillna(False)
+    return duplicates, quality, address_clusters
+
+
+def run_data_quality(input_dir, output_dir=DEFAULT_OUTPUT_DIR):
+    """Validate, analyze, and write local V2 outputs."""
+    entities, assignments, scores, address_column = load_inputs(input_dir)
+    duplicates, quality, address_clusters = analyze_data_quality(
+        entities, assignments, scores, address_column
+    )
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    duplicates.to_csv(output_dir / "dup_pairs.csv", index=False)
+    quality.to_csv(output_dir / "cluster_dq.csv", index=False)
+    (address_clusters.sort_values(ascending=False).head(50).rename("clusters")
+     .reset_index().to_csv(output_dir / "placeholder_top50.csv", index=False))
+
+    summary = quality.groupby("flag_category").agg(
+        clusters=("cluster_id", "size"),
+        duplicate=("has_duplicate", "sum"),
+        placeholder=("has_placeholder", "sum"),
+        artifact=("artifact", "sum"),
+    )
+    summary["artifact_pct"] = (100 * summary.artifact / summary.clusters).round(1)
+    print(summary)
+    return summary
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--input-dir",
+        default=os.environ.get("V2_INPUT_DIR"),
+        help="directory containing the three isolated V2 CSV inputs (or set V2_INPUT_DIR)",
+    )
+    args = parser.parse_args(argv)
+    if not args.input_dir:
+        parser.error("provide --input-dir or set V2_INPUT_DIR; results/snapshot is never used")
+    run_data_quality(args.input_dir)
+
+
+if __name__ == "__main__":
+    main()

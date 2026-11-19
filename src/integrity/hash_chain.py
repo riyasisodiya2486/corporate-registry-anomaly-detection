@@ -2,16 +2,6 @@ import hashlib
 import os
 
 from sqlalchemy import create_engine, text
-from dotenv import load_dotenv
-
-load_dotenv()
-
-LOCAL_ENGINE = create_engine(
-    "postgresql://admin:admin123@localhost:5432/registry"
-)
-engine = LOCAL_ENGINE
-
-NEON_ENGINE = create_engine(os.environ["DATABASE_URL"])
 
 
 def compute_record_hash(entity_row, previous_hash: str) -> str:
@@ -31,8 +21,13 @@ def compute_record_hash(entity_row, previous_hash: str) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def hash_all_entities():
-    """Build the hash chain over all cleaned entities using batched inserts."""
+def hash_all_entities(engine):
+    """Build the hash chain over all cleaned entities using batched inserts.
+
+    ``engine`` must be a SQLAlchemy engine connected to the target database.
+    The function truncates ``record_hashes`` before rebuilding the chain, so
+    callers are responsible for ensuring this is the intended target.
+    """
 
     BATCH_SIZE = 500
 
@@ -109,61 +104,162 @@ def hash_all_entities():
         )
 
 
-def log_audit_action(action_type: str, cluster_id, reviewer: str, db_engine=None) -> str:
-    """Write one audit_log row, chaining it from the previous audit action."""
+AUDIT_CHAIN_LOCK_ID = 0x43524144
+
+
+def acquire_audit_chain_lock(connection) -> None:
+    """Serialize audit-chain writers for the duration of their transaction.
+
+    PostgreSQL transaction-level advisory locks are released automatically on
+    commit or rollback. Every writer using this module must acquire this lock
+    before reading the current tail of audit_log.
+    """
+    connection.execute(
+        text("SELECT pg_advisory_xact_lock(:lock_id)"),
+        {"lock_id": AUDIT_CHAIN_LOCK_ID},
+    )
+
+
+def _write_audit_action(connection, action_type: str, cluster_id, reviewer: str) -> str:
+    acquire_audit_chain_lock(connection)
+    last = connection.execute(
+        text(
+            "SELECT action_hash FROM audit_log "
+            "ORDER BY log_id DESC LIMIT 1"
+        )
+    ).fetchone()
+    previous_hash = last[0] if last else ""
+
+    import datetime
+
+    timestamp = datetime.datetime.now()
+    action_hash = compute_audit_action_hash(
+        action_type, cluster_id, reviewer, timestamp, previous_hash
+    )
+
+    connection.execute(
+        text("""
+            INSERT INTO audit_log
+            (action_type, cluster_id, reviewer, created_at, action_hash, previous_hash)
+            VALUES
+            (:at, :cid, :rev, :created_at, :ah, :ph)
+        """),
+        {
+            "at": action_type,
+            "cid": cluster_id,
+            "rev": reviewer,
+            "created_at": timestamp,
+            "ah": action_hash,
+            "ph": previous_hash,
+        },
+    )
+    return action_hash
+
+
+def log_audit_action(
+    action_type: str,
+    cluster_id,
+    reviewer: str,
+    db_engine=None,
+    connection=None,
+) -> str:
+    """Write one chained audit row to ``audit_log``.
+
+    Exactly one of ``db_engine`` or ``connection`` must be supplied. There is
+    no module-level default engine: passing neither raises ``ValueError`` so a
+    misconfiguration cannot silently target an unintended database.
+
+    ``db_engine`` opens its own transaction. Callers that need an atomic
+    multi-statement operation may pass their active ``connection``; in that
+    case the caller owns commit/rollback.
+    """
+    if connection is not None:
+        if db_engine is not None:
+            raise ValueError("Pass either connection or db_engine, not both")
+        return _write_audit_action(connection, action_type, cluster_id, reviewer)
 
     if db_engine is None:
-        db_engine = LOCAL_ENGINE
-
-    with db_engine.connect() as conn:
-
-        last = conn.execute(
-            text(
-                "SELECT action_hash "
-                "FROM audit_log "
-                "ORDER BY log_id DESC LIMIT 1"
-            )
-        ).fetchone()
-
-        previous_hash = last[0] if last else ""
-
-        import datetime
-
-        timestamp = datetime.datetime.now().isoformat()
-
-        payload = (
-            f"{action_type}|{cluster_id}|{reviewer}|"
-            f"{timestamp}|{previous_hash}"
+        raise ValueError(
+            "log_audit_action requires either db_engine= or connection=; "
+            "no default engine is available"
         )
+    with db_engine.begin() as conn:
+        return _write_audit_action(conn, action_type, cluster_id, reviewer)
 
-        action_hash = hashlib.sha256(
-            payload.encode("utf-8")
-        ).hexdigest()
 
-        conn.execute(
-            text("""
-                INSERT INTO audit_log
-                    (action_type, cluster_id, reviewer,
-                     action_hash, previous_hash)
-                VALUES
-                    (:at, :cid, :rev, :ah, :ph)
-            """),
-            {
-                "at": action_type,
-                "cid": cluster_id,
-                "rev": reviewer,
-                "ah": action_hash,
-                "ph": previous_hash
+def compute_audit_action_hash(
+    action_type: str,
+    cluster_id,
+    reviewer: str,
+    timestamp,
+    previous_hash: str,
+) -> str:
+    """Hash audit fields using the exact serialization used by insertion."""
+    timestamp_text = timestamp if isinstance(timestamp, str) else timestamp.isoformat()
+    payload = f"{action_type}|{cluster_id}|{reviewer}|{timestamp_text}|{previous_hash}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def verify_audit_chain_rows(rows):
+    """Verify ordered audit rows without database access or mutation.
+
+    Returns a result dictionary with ``valid``, ``count``, and, on failure,
+    the first invalid ``log_id`` and a concise ``reason``.
+    """
+    expected_previous = ""
+    count = 0
+    for row in rows:
+        log_id = row["log_id"]
+        if row["previous_hash"] != expected_previous:
+            return {
+                "valid": False,
+                "count": count + 1,
+                "log_id": log_id,
+                "reason": "previous_hash does not match the preceding action_hash",
             }
-        )
 
-        conn.commit()
+        timestamp = row["created_at"]
+        if timestamp is None:
+            return {
+                "valid": False,
+                "count": count + 1,
+                "log_id": log_id,
+                "reason": "created_at is missing; the action hash cannot be recomputed",
+            }
+        try:
+            expected_hash = compute_audit_action_hash(
+                row["action_type"],
+                row["cluster_id"],
+                row["reviewer"],
+                timestamp,
+                expected_previous,
+            )
+        except (AttributeError, TypeError, ValueError) as error:
+            return {
+                "valid": False,
+                "count": count + 1,
+                "log_id": log_id,
+                "reason": f"created_at cannot be serialized: {error}",
+            }
+        if row["action_hash"] != expected_hash:
+            return {
+                "valid": False,
+                "count": count + 1,
+                "log_id": log_id,
+                "reason": "action_hash does not match action fields, created_at, and previous_hash",
+            }
+        expected_previous = row["action_hash"]
+        count += 1
 
-        return action_hash
+    return {"valid": True, "count": count}
 
 
-def verify_chain_integrity(table: str) -> bool:
-    """Verify hash-chain links and recompute record hashes when checking record_hashes."""
+def verify_chain_integrity(table: str, engine) -> bool:
+    """Verify record_hashes or fully recompute action hashes in audit_log.
+
+    ``engine`` must be a SQLAlchemy engine connected to the target database.
+    No module-level engine is used; callers must pass one explicitly.
+    """
 
     if table == "record_hashes":
 
@@ -226,44 +322,23 @@ def verify_chain_integrity(table: str) -> bool:
         return True
 
     elif table == "audit_log":
+        with engine.connect() as conn:
+            rows = conn.execute(text("""
+                SELECT log_id, action_type, cluster_id, reviewer, created_at,
+                       action_hash, previous_hash
+                FROM audit_log
+                ORDER BY log_id
+            """)).mappings().all()
 
-        hash_col = "action_hash"
-        id_col = "log_id"
+        result = verify_audit_chain_rows(rows)
+        if not result["valid"]:
+            print(f"BROKEN CHAIN at log_id {result['log_id']}: {result['reason']}")
+            return False
+        print(f"SUCCESS: audit_log chain verified intact across {result['count']} rows")
+        return True
 
     else:
 
         raise ValueError(
             "table must be 'record_hashes' or 'audit_log'"
         )
-
-    with engine.connect() as conn:
-
-        rows = conn.execute(
-            text(f"""
-                SELECT {hash_col}, previous_hash
-                FROM {table}
-                ORDER BY {id_col}
-            """)
-        ).all()
-
-    expected_previous = ""
-
-    for i, (current_hash, stored_previous) in enumerate(rows):
-
-        if stored_previous != expected_previous:
-
-            print(
-                f"BROKEN CHAIN at row {i}: "
-                f"previous_hash link is invalid"
-            )
-
-            return False
-
-        expected_previous = current_hash
-
-    print(
-        f"SUCCESS: {table} chain verified intact "
-        f"across {len(rows)} rows"
-    )
-
-    return True

@@ -1,48 +1,59 @@
-# Python Virtual Environments
+# Python virtual environments
 venv/
 .venv/
 env/
 ENV/
 
-# Python Cache & Bytecode
+# Python cache and bytecode
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
 
-# Local Data Files (Raw & Processed CSVs)
+# Local data files
 data/raw/*
 data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
+raw_companies.csv
+raw_chunk_*.csv
 
-# Environment & Credentials
+# Environment and credentials
 .env
 *.env.local
 
-# Database Files
+# Database files and backups
 *.sqlite
 *.db
+registry_backup.dump
 
-# IDE & Editor Files
+# IDE and operating system files
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# OS Generated Files
 .DS_Store
 Thumbs.db
 
-.venv/ 
-__pycache__/ 
-data/raw/*.csv 
-.env
-raw_companies.csv
-raw_chunk_*.csv
-registry_backup.dump
-
-results/snapshot/cleaned_entities.csv
-
+# Existing project outputs
 results/snapshot/cleaned_entities.csv
 results/audit_view.txt
+
+# Local V1/V2 snapshots and backups
+results/snapshot/
+results/snapshot_backup_*/
+
+# Private director-list and OCR artifacts
+results/v2/disqualified*.csv
+results/v2/*unparsed*
+results/v2/*ocr*
+data_private/
+
+# Private reviewer and pair data (Day 16)
+results/review/
+results/v2/pairs_to_label.csv
+results/v2/pairs_rule_flag.csv
+results/v2/placeholder_top50.csv
+results/v2/pool_membership.csv
+results/v2/dup_pairs.csv
+results/v2/ 

@@ -223,12 +223,25 @@ def write_cluster_assignments(conn, assignments_df):
 def compute_record_hash(entity_row, previous_hash: str) -> str:
     """SHA-256 of entity_row's key fields + previous_hash. First record uses previous_hash=''."""
 
-def log_audit_action(conn, action_type: str, cluster_id: int, reviewer: str) -> str:
-    """Writes one row to audit_log, auto-chaining from the most recent previous_hash. Returns new hash."""
+def log_audit_action(
+    action_type: str,
+    cluster_id,
+    reviewer: str,
+    db_engine=None,
+    connection=None,
+) -> str:
+    """Write one chained audit row to audit_log.
 
-def verify_chain_integrity(conn, table: str) -> bool:
-    """table = 'record_hashes' or 'audit_log'. Recomputes the whole chain; True if intact."""
-```
+    Backward-compatible ``db_engine`` form opens its own transaction. Callers that
+    need an atomic multi-statement operation may pass their active ``connection``;
+    in that case the caller owns commit/rollback. Do not pass both arguments.
+    Returns the new action_hash.
+    """
+
+def verify_chain_integrity(table: str, engine) -> bool:
+    """table = 'record_hashes' or 'audit_log'. Recomputes the whole chain using
+    the explicitly passed engine; True if intact. Rows are read in hash_id /
+    log_id order. No module-level engine is used."""
 
 ### 4.2 Riya provides
 

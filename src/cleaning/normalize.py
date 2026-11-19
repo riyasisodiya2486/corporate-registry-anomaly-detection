@@ -103,17 +103,3 @@ def parse_capital(value):
         return float(cleaned) if cleaned else None
     except ValueError:
         return None
-    """Convert capital strings like '1,00,000' or '100000.00' to a float."""
-    if not value or not isinstance(value, str):
-        return None
-
-    # Remove commas first
-    cleaned = value.replace(",", "")
-
-    # Remove currency symbols/text and keep digits + decimal point
-    cleaned = re.sub(r"[^\d.]", "", cleaned)
-
-    try:
-        return float(cleaned) if cleaned else None
-    except ValueError:
-        return None
