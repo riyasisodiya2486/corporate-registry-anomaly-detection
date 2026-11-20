@@ -108,8 +108,10 @@ def _form(review_round: str, mode: str, cluster_id: int, reviewer: str, key: str
     try:
         save_review(review_round, mode, cluster_id, reviewer, answers, verdict, note)
     except Exception as e:
-        st.error(f"Could not save. Nothing was recorded. ({type(e).__name__})")
-        return False
+        first = (str(e).splitlines() or [""])[0][:200]
+        st.session_state["save_error"] = f"{type(e).__name__}: {first}"
+        st.rerun()
+    st.session_state["save_ok"] = True
     return True
 
 
@@ -120,6 +122,10 @@ def render_blind_queue():
         st.info("Blind review: sign in with the Reviewer login in the sidebar.")
         return
     reviewer = ss["reviewer_name"]
+    if ss.pop("save_ok", False):
+        st.success("Review saved. Here is the next group.")
+    if ss.get("save_error"):
+        st.error(f"Could not save: {ss.pop('save_error')}")
     done, total = reviewer_progress(QUEUE_BATCH, reviewer)
     st.progress(min(done / total, 1.0) if total else 0.0,
                 text=f"Batch {QUEUE_BATCH}: {done} of {total} reviewed")

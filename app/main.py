@@ -220,6 +220,8 @@ st.sidebar.markdown(
 page = st.sidebar.radio("Navigation", PAGES, key="page")
 st.sidebar.caption("New here? Start with Home.")
 render_reviewer_login()
+if blind_active():
+    st.sidebar.caption("Blind review mode: other pages unlock when you finish your queue.")
 
 st.sidebar.markdown("---")
 st.sidebar.markdown(
@@ -516,7 +518,7 @@ elif page == "Cluster Detail":
                     if isinstance(html, str):
                         components.html(html, height=440, scrolling=True)
                     else:
-                        st.caption("network_html did not return an HTML string. Send me lines 41-57 of v2_views.py.")
+                        st.pyplot(v2_views.network_fig(extras["members"]))
                 except Exception as e:
                     st.caption(f"Network view failed: {type(e).__name__}: {e}")
 

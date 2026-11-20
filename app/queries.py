@@ -166,7 +166,7 @@ def load_cluster_extras(cluster_id: int) -> dict:
 # Reviews are INSERT only. chain_hash stays NULL; chain_reviews.py fills it later.
 # ------------------------------------------------------------------
 def save_review(review_round: str, review_mode: str, cluster_id: int, reviewer: str,
-                answers: dict, verdict: str, note: str) -> None:
+                answers: dict, verdict: str, note: str) -> int:
     if verdict not in VERDICTS:
         raise ValueError("Invalid verdict")
     if review_mode not in (BLIND_MODE, OPEN_MODE):
@@ -180,17 +180,21 @@ def save_review(review_round: str, review_mode: str, cluster_id: int, reviewer: 
         params[k] = answers[k]
     # Column names come from the constants above, never from user input.
     sql = (f"INSERT INTO reviewer_reviews ({', '.join(cols)}) "
-           f"VALUES ({', '.join(':' + c for c in cols)})")
+           f"VALUES ({', '.join(':' + c for c in cols)}) RETURNING review_id")
+
     with get_reviewer_engine().begin() as conn:
         if review_mode == BLIND_MODE:
-            exists = conn.execute(text("""
-                SELECT 1 FROM reviewer_reviews
+            existing = conn.execute(text("""
+                SELECT review_id FROM reviewer_reviews
                 WHERE cluster_id = :c AND reviewer = :r AND review_round = :rd
                   AND review_mode = 'blind_queue' LIMIT 1"""),
                 {"c": int(cluster_id), "r": reviewer, "rd": review_round}).first()
-            if exists:
-                return   # already saved: ignore the duplicate click
-        conn.execute(text(sql), params)
+            if existing:
+                return int(existing[0])      # double click: already saved
+        new_id = conn.execute(text(sql), params).scalar()
+    if new_id is None:
+        raise RuntimeError("Insert returned no row id")
+    return int(new_id)
 
 
 def next_queue_cluster(batch: str, reviewer: str):
@@ -206,7 +210,7 @@ def next_queue_cluster(batch: str, reviewer: str):
                   WHERE r.cluster_id = q.cluster_id
                     AND r.reviewer = :rev
                     AND r.review_round = :b
-                    AND r.review_mode = 'blind')
+                    AND r.review_mode = 'blind_queue')
             ORDER BY md5(CAST(q.cluster_id AS text) || :rev), q.cluster_id
             LIMIT 1
         """), {"b": batch, "rev": reviewer}).first()
@@ -219,7 +223,7 @@ def reviewer_progress(batch: str, reviewer: str):
         row = conn.execute(text("""
             SELECT
               (SELECT COUNT(DISTINCT cluster_id) FROM reviewer_reviews
-                WHERE review_round = :b AND reviewer = :rev AND review_mode = 'blind') AS done,
+                WHERE review_round = :b AND reviewer = :rev AND review_mode = 'blind_queue') AS done,
               (SELECT COUNT(*) FROM review_queue WHERE batch = :b) AS total
         """), {"b": batch, "rev": reviewer}).first()
     return int(row[0]), int(row[1])
