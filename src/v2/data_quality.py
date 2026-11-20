@@ -173,6 +173,44 @@ def run_data_quality(input_dir, output_dir=DEFAULT_OUTPUT_DIR):
     return summary
 
 
+def load_inputs_from_db(database_url=None):
+    """Load V2 tables directly via V2_DATABASE_URL; refuse if equal to DATABASE_URL."""
+    v2_url = (database_url or os.environ.get('V2_DATABASE_URL') or '').strip()
+    if not v2_url:
+        raise ValueError('V2_DATABASE_URL is not set')
+    prod_url = (os.environ.get('DATABASE_URL') or '').strip()
+    if prod_url and v2_url == prod_url:
+        raise RuntimeError('Refusing to run V2 data quality against DATABASE_URL (production)')
+    from sqlalchemy import create_engine
+    engine = create_engine(v2_url)
+    try:
+        with engine.connect() as conn:
+            cols_res = pd.read_sql("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='cleaned_entities'", conn)
+            entity_cols = set(cols_res['column_name'].tolist())
+            addr_col = 'address_normalized' if 'address_normalized' in entity_cols else ('address_raw' if 'address_raw' in entity_cols else None)
+            if addr_col is None:
+                raise ValueError('Missing address_normalized or address_raw in cleaned_entities')
+            entities = pd.read_sql(f'SELECT entity_id, company_name_normalized, {addr_col}, pincode, date_of_registration FROM cleaned_entities', conn)
+            assignments = pd.read_sql('SELECT entity_id, cluster_id FROM cluster_assignments', conn)
+            scores = pd.read_sql('SELECT cluster_id, flag_category, composite_score FROM cluster_scores', conn)
+    finally:
+        engine.dispose()
+    return entities, assignments, scores, addr_col
+
+
+def run_data_quality_from_db(output_dir=DEFAULT_OUTPUT_DIR, database_url=None):
+    entities, assignments, scores, address_column = load_inputs_from_db(database_url)
+    duplicates, quality, address_clusters = analyze_data_quality(entities, assignments, scores, address_column)
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    duplicates.to_csv(output_dir / 'dup_pairs.csv', index=False)
+    quality.to_csv(output_dir / 'cluster_dq.csv', index=False)
+    (address_clusters.sort_values(ascending=False).head(50).rename('clusters').reset_index().to_csv(output_dir / 'placeholder_top50.csv', index=False))
+    summary = quality.groupby('flag_category').agg(clusters=('cluster_id', 'size'), duplicate=('has_duplicate', 'sum'), placeholder=('has_placeholder', 'sum'), artifact=('artifact', 'sum'))
+    summary['artifact_pct'] = (100 * summary.artifact / summary.clusters).round(1)
+    print(summary)
+    return summary
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -180,7 +218,15 @@ def main(argv=None):
         default=os.environ.get("V2_INPUT_DIR"),
         help="directory containing the three isolated V2 CSV inputs (or set V2_INPUT_DIR)",
     )
+    parser.add_argument(
+        "--from-db",
+        action="store_true",
+        help="load directly from V2_DATABASE_URL instead of a CSV directory",
+    )
     args = parser.parse_args(argv)
+    if args.from_db:
+        run_data_quality_from_db()
+        return
     if not args.input_dir:
         parser.error("provide --input-dir or set V2_INPUT_DIR; results/snapshot is never used")
     run_data_quality(args.input_dir)
