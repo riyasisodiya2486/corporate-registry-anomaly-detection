@@ -112,8 +112,8 @@ def _form(review_round: str, mode: str, cluster_id: int, reviewer: str, key: str
         first = (str(e).splitlines() or [""])[0][:200]
         st.session_state["save_error"] = f"{type(e).__name__}: {first}"
         st.rerun()
-        if mode == BLIND_MODE:
-            st.session_state["last_saved"] = {"cid": int(cluster_id), "verdict": verdict}
+    if mode == BLIND_MODE:
+        st.session_state["last_saved"] = {"cid": int(cluster_id), "verdict": verdict}
     st.session_state["save_ok"] = True
     return True
 
