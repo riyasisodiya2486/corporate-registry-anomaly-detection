@@ -4,37 +4,39 @@ import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 
-from hash_chain import log_audit_action, NEON_ENGINE
-
-
-load_dotenv()
-engine = create_engine(os.environ["DATABASE_URL"])
+from hash_chain import log_audit_action
 
 
 def log_high_priority_clusters():
-    print("Loading high-priority clusters from Neon...")
+    load_dotenv()
+    engine = create_engine(os.environ["DATABASE_URL"])
 
-    df = pd.read_sql(
-        """
-        SELECT cluster_id
-        FROM cluster_scores
-        WHERE flag_category = 'high_priority'
-        ORDER BY cluster_id
-        """,
-        engine,
-    )
+    try:
+        print("Loading high-priority clusters...")
 
-    print(f"{len(df):,} high-priority clusters found.")
-
-    for cluster_id in df["cluster_id"]:
-        log_audit_action(
-            "flagged",
-            int(cluster_id),
-            "system",
-            db_engine=NEON_ENGINE,
+        df = pd.read_sql(
+            """
+            SELECT cluster_id
+            FROM cluster_scores
+            WHERE flag_category = 'high_priority'
+            ORDER BY cluster_id
+            """,
+            engine,
         )
 
-    print(f"SUCCESS: logged {len(df):,} flagged clusters.")
+        print(f"{len(df):,} high-priority clusters found.")
+
+        for cluster_id in df["cluster_id"]:
+            log_audit_action(
+                "flagged",
+                int(cluster_id),
+                "system",
+                db_engine=engine,
+            )
+
+        print(f"SUCCESS: logged {len(df):,} flagged clusters.")
+    finally:
+        engine.dispose()
 
 
 if __name__ == "__main__":
