@@ -1,6 +1,16 @@
 import pandas as pd
 import streamlit as st
-from queries import get_leaderboard, get_summary, load_cluster_view, search_company
+import streamlit.components.v1 as components
+
+from queries import (get_leaderboard, get_summary, load_cluster_extras,
+                     load_cluster_view, search_company)
+from reviewer_ui import (blind_active, render_blind_queue, render_open_review,
+                         render_reviewer_login)
+
+try:
+    import v2_views   # network view and evidence dossier
+except Exception:
+    v2_views = None
 
 st.set_page_config(
     page_title="ROC Pune | Corporate Registry Intelligence",
@@ -209,6 +219,9 @@ st.sidebar.markdown(
 
 page = st.sidebar.radio("Navigation", PAGES, key="page")
 st.sidebar.caption("New here? Start with Home.")
+render_reviewer_login()
+if blind_active():
+    st.sidebar.caption("Blind review mode: other pages unlock when you finish your queue.")
 
 st.sidebar.markdown("---")
 st.sidebar.markdown(
@@ -219,6 +232,9 @@ st.sidebar.markdown(
 """,
     unsafe_allow_html=True,
 )
+if blind_active() and page != "Cluster Detail":
+    go("Cluster Detail")
+    st.rerun()
 
 # ---------------------------------------------------------------- HOME
 if page == "Home":
@@ -418,6 +434,9 @@ elif page == "Search":
 
 # ------------------------------------------------------ CLUSTER DETAIL
 elif page == "Cluster Detail":
+    if blind_active():
+        render_blind_queue()
+        st.stop()
     st.markdown(
         """
         <div style="padding: 12px 0 16px 0;">
@@ -490,6 +509,39 @@ elif page == "Cluster Detail":
                 }
             )
             st.dataframe(mem, hide_index=True, use_container_width=True)
+            extras = load_cluster_extras(int(cluster_id))
+            if v2_views is not None:
+                st.markdown("<h3 style='margin-top: 28px; font-size: 1.1rem;'>Network view</h3>",
+                            unsafe_allow_html=True)
+                try:
+                    html = v2_views.network_html(extras["members"])
+                    if isinstance(html, str):
+                        components.html(html, height=440, scrolling=True)
+                    else:
+                        st.pyplot(v2_views.network_fig(extras["members"]))
+                except Exception as e:
+                    st.caption(f"Network view failed: {type(e).__name__}: {e}")
+
+                st.markdown("<h3 style='margin-top: 28px; font-size: 1.1rem;'>Evidence dossier</h3>",
+                            unsafe_allow_html=True)
+                try:
+                    dossier = v2_views.build_dossier(int(cluster_id), scores, extras["members"],
+                                                     data["explanations"], extras["reuse"],
+                                                     FEATURE_LABELS)
+                    if isinstance(dossier, (tuple, list)):
+                        texts = [x for x in dossier if isinstance(x, str)]
+                        dossier = texts[-1] if texts else "\n".join(map(str, dossier))
+                    if isinstance(dossier, str):
+                        st.markdown(dossier)
+                        st.download_button("Download dossier", dossier,
+                                           file_name=f"cluster_{int(cluster_id)}_dossier.md",
+                                           key=f"dos_{int(cluster_id)}")
+                    else:
+                        st.write(dossier)
+                except Exception as e:
+                    st.caption(f"Dossier failed: {type(e).__name__}: {e}")
+            render_open_review(int(cluster_id))
+            
     else:
         examples = get_example_clusters()
         if examples:
