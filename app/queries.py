@@ -239,3 +239,16 @@ def get_reviews(batch: str):
             WHERE review_round = :b AND review_mode = 'blind_queue'
             ORDER BY cluster_id, reviewer
         """), conn, params={"b": batch})
+
+@st.cache_data(ttl=600, show_spinner=False)
+def get_ai_opinion(cluster_id: int):
+    """Cached AI opinion for a cluster, or None. Read-only; the app never calls Groq."""
+    try:
+        with get_engine().connect() as conn:
+            row = conn.execute(text("""
+                SELECT verdict, duplicate_record, address_type, registered_close,
+                       directors_shared, filings_ok, office_exists, reason, model
+                FROM ai_opinions WHERE cluster_id = :c"""), {"c": int(cluster_id)}).mappings().first()
+        return dict(row) if row else None
+    except Exception:
+        return None

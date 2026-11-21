@@ -5,7 +5,7 @@ import streamlit.components.v1 as components
 from queries import (get_leaderboard, get_summary, load_cluster_extras,
                      load_cluster_view, search_company)
 from reviewer_ui import (blind_active, render_blind_queue, render_open_review,
-                         render_reviewer_login)
+                         render_reviewer_login, render_ai_opinion)
 
 try:
     import v2_views   # network view and evidence dossier
@@ -540,6 +540,7 @@ elif page == "Cluster Detail":
                         st.write(dossier)
                 except Exception as e:
                     st.caption(f"Dossier failed: {type(e).__name__}: {e}")
+            render_ai_opinion(int(cluster_id))
             render_open_review(int(cluster_id))
             
     else:
