@@ -102,7 +102,7 @@ def build_dossier(cid, scores, members, explanations, reuse, feature_labels):
     if pairs:
         facts.append(f"{pairs} pair(s) look like the same company recorded twice (similar name, registered within 3 days).")
     if scores:
-        facts.append(f"Model score {float(scores['composite_score']):.1f} out of 100, class: {scores['flag_category']}.")
+        facts.append(f"Model score {float(scores['composite_score']):.1f} out of 100, class: {'review suggested' if scores['flag_category'] == 'high_priority' else scores['flag_category']}.")
     if explanations is not None and len(explanations):
         top = [feature_labels.get(r.feature_name, r.feature_name) for r in explanations.head(3).itertuples()]
         facts.append("Top model factors: " + "; ".join(top) + ".")

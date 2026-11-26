@@ -1,0 +1,10 @@
+tier,n,verdict,k,rate,lo,hi
+high_priority,30,worth_review,12,0.4,0.246,0.577
+high_priority,30,data_artifact,9,0.3,0.167,0.479
+high_priority,30,ordinary,9,0.3,0.167,0.479
+moderate,10,worth_review,4,0.4,0.168,0.687
+moderate,10,data_artifact,1,0.1,0.018,0.404
+moderate,10,ordinary,5,0.5,0.237,0.763
+baseline,30,worth_review,2,0.067,0.018,0.213
+baseline,30,data_artifact,1,0.033,0.006,0.167
+baseline,30,ordinary,27,0.9,0.744,0.965

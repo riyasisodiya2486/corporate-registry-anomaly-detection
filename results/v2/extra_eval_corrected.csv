@@ -1,0 +1,12 @@
+system,auc,P@50,P@100,P@370
+1 Stored composite_score,0.589,0.3,0.28,0.322
+"2 Isolation Forest refit, all signals",0.591,0.28,0.33,0.346
+without address_signal_score,0.581,0.18,0.25,0.292
+without name_signal_score,0.587,0.24,0.29,0.349
+without timing_signal_score,0.588,0.44,0.43,0.432
+without capital_similarity_score,0.564,0.28,0.37,0.365
+without topology_score,0.572,0.34,0.26,0.243
+without category_homogeneity_score,0.58,0.3,0.33,0.33
+4 Fixed-weight equal mean (6 signals),0.53,0.44,0.41,0.349
+"5 LOF (n_neighbors=35, 6 signals)",0.52,0.46,0.41,0.373
+6 Cluster size only,0.539,0.78,0.62,0.427

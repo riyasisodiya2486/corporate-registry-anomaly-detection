@@ -1,0 +1,5 @@
+system,roc_auc,pr_auc
+sys_v1,0.798,0.569
+sys_v1_artifact,0.886,0.716
+sys_rule,0.718,0.482
+sys_logreg,0.92,0.757
