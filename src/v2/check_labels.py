@@ -66,3 +66,6 @@ for cid in need.index:
         bad.append((int(cid), "not adjudicated, but has a final label", fin.get(int(cid))))
 print("\nlabel problems:", bad if bad else "none")
 print("final label counts:", pd.Series(list(fin.values())).value_counts().to_dict())
+extra = sorted(set(fin) - set(int(i) for i in piv.index))
+print("final label rows:", len(fin), "(expected 70)")
+print("labels for clusters not reviewed by both raters in r1:", len(extra))

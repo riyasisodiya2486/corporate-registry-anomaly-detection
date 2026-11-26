@@ -161,7 +161,7 @@ st.markdown(
 PAGES = ["Home", "Search", "Cluster Detail", "Leaderboard"]
 
 FLAG_LABELS = {
-    "high_priority": "High Priority",
+    "high_priority": "Review suggested",
     "moderate": "Moderate",
     "baseline": "Baseline Range",
 }
@@ -293,7 +293,7 @@ if page == "Home":
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Companies Analysed", f"{s['companies']:,}")
         c2.metric("Groups (Clusters) Found", f"{s['clusters']:,}")
-        c3.metric("High Priority", f"{s['high']:,}")
+        c3.metric("Review Suggested", f"{s['high']:,}")
         c4.metric("Moderate", f"{s['moderate']:,}")
     except Exception:
         st.caption("Live statistics are temporarily unavailable.")
@@ -366,7 +366,7 @@ if page == "Home":
             "- **Cluster / group**: companies that the system believes look alike (shared address, "
             "similar names and so on).\n"
             "- **Score (0-100)**: how unusual the group is compared with all other groups.\n"
-            "- **High priority / Moderate / Baseline**: the top 5%, the next 15%, and the remaining 80% of scores.\n"
+            "- **Review suggested / Moderate / Baseline**: the top 5%, the next 15%, and the remaining 80% of scores.\n"
             "- **Why it was flagged**: the factors that pushed the score up the most."
         )
 
@@ -512,7 +512,7 @@ elif page == "Cluster Detail":
                        "It is a rank of rarity, not a probability of wrongdoing.")
 
             if scores.get("flag_category") == "high_priority":
-                st.error("[HIGH PRIORITY] Several signals point the same way. This is a lead for human review, not a finding.")
+                st.error("[REVIEW SUGGESTED] Several signals point the same way. This is a lead for human review, not a finding.")
             elif scores.get("flag_category") == "moderate":
                 st.warning("[MODERATE] This group is somewhat unusual. Worth a look if time allows.")
             else:
@@ -622,7 +622,7 @@ elif page == "Leaderboard":
     )
 
     options = {
-        "High Priority Only": "high_priority",
+        "Review Suggested Only": "high_priority",
         "Moderate Only": "moderate",
         "Baseline Range Only": "baseline",
         "All Clusters": "all",
