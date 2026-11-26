@@ -144,3 +144,41 @@ change the pipeline, scores or tag.
 - The database stores only the top 3 SHAP factors per cluster
 - The deployed app is a public demo showing real company names; it uses a read-only database role (app_reader) and carries a visible "leads, not findings" notice
 - A deduplication step before scoring (exact and fuzzy duplicate records, placeholder-address filtering).
+
+
+
+
+## V2 Blind Audit, Signal Ablation, and Integrity Results (results-final)
+
+Status: figures and numbers from the V2 evaluation and audit run (results-final), built on the same 188,042 ROC Pune entities and 7,384 clusters (19,810 clustered entities across 7,329 connected components; 3,414 bridge clusters).
+
+### Round 1 Blind Audit and Inter-Rater Agreement (n = 70)
+
+Two reviewers (riya and yashika) independently rated 70 stratified Round 1 clusters (30 high_priority, 10 moderate, 30 baseline) under blind conditions (50 agreed directly; 20 adjudicated using docs/adjudication_notes.md after removing an erroneous pre-adjudication entry on cluster_id = 4587):
+
+- Finalized label counts (results/v2/labels_final.csv): 41 ordinary (N), 18 worth_review (Y), and 11 data_artifact (D), published to human_summary (70 clusters).
+- Inter-rater agreement: Cohen's kappa = 0.521 excluding need_more_info (n = 69) and kappa = 0.510 across all four verdicts.
+
+### Tier Breakdown and Stored-Score Alignment on Human Verdicts
+
+From results/v2/tier_vs_human.csv (n = 70, stratified 30/10/30):
+- high_priority (n = 30): worth_review 12 (0.400, 95%% Wilson CI 0.246 to 0.577), data_artifact 9 (0.300), ordinary 9 (0.300).
+- moderate (n = 10): worth_review 4 (0.400, 95%% Wilson CI 0.168 to 0.687), data_artifact 1 (0.100), ordinary 5 (0.500).
+- baseline (n = 30): worth_review 2 (0.067, 95%% Wilson CI 0.018 to 0.213), data_artifact 1 (0.033), ordinary 27 (0.900).
+- Stored composite_score AUC for worth_review vs. non-worth_review: 0.798 (n = 70). Confidence intervals remain wide.
+
+### Struck-Off Proxy Benchmark and Signal Ablation (n = 7,384)
+
+Using cluster-level struck-off status (Strike Off or Under process of striking off on at least one member) as a loose, size-confounded proxy rather than ground truth (results/v2/extra_eval_corrected.csv, excluding isolation_forest_score leakage; base rate 0.285):
+
+- Stored composite_score: AUC 0.589, P@50 = 0.300, P@100 = 0.280, P@370 = 0.322.
+- Refit 6-signal Isolation Forest (random_state=42): AUC 0.591, P@50 = 0.280, P@100 = 0.330, P@370 = 0.346, Spearman rank correlation 0.947 with stored composite_score.
+- Without artifacts (n = 6,688, base rate 0.264): AUC 0.566.
+- Size 2 (base rate 0.267): P@50 = 0.240 (0.143 to 0.374), P@100 = 0.310 (0.228 to 0.406).
+- Size 3+ (base rate 0.345): P@50 = 0.300 (0.191 to 0.438), P@100 = 0.290 (0.210 to 0.385).
+
+### Artifacts, Audit Chain Integrity, and UI Guardrails
+
+- Weighted placeholder precision: 0.8204; results/v2/cluster_dq.csv (7,384 rows) holds aggregate quality indicators without raw company or address text.
+- Audit log: 78 pending reviews chained; chain integrity verified across all 218 rows.
+- Public UI: high-score leads use "Review suggested" terminology with explicit notices that results are leads for human review rather than findings of wrongdoing.
