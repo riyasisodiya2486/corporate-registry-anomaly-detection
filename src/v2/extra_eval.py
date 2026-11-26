@@ -4,6 +4,7 @@ import os
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
+from scipy.stats import spearmanr
 from sqlalchemy import create_engine, text
 from sklearn.ensemble import IsolationForest
 from sklearn.linear_model import LogisticRegression
@@ -31,7 +32,7 @@ with eng.connect() as c:
 df = sc.merge(st_, on="cluster_id").sort_values("cluster_id").reset_index(drop=True)
 y = df["struck"].astype(int).values
 print("cluster_scores columns:", list(sc.columns))
-feats = [
+FEATURE_COLS = [
     "address_signal_score",
     "name_signal_score",
     "timing_signal_score",
@@ -40,16 +41,22 @@ feats = [
     "category_homogeneity_score",
     "bridge_flag",
 ]
+feats = [col for col in FEATURE_COLS if col in df.columns]
+missing_feats = [col for col in FEATURE_COLS if col not in df.columns]
 print("signals used:", feats)
-if len(feats) != 6:
-    print("WARNING: expected the 6 named signals. Check the list above against the model's features.")
+if missing_feats:
+    print("Unavailable signals omitted:", missing_feats)
+if not feats:
+    raise SystemExit("No evaluation signal columns are available.")
 X = df[feats].astype(float)
-X = X.fillna(X.median())
+X = X.fillna(X.median()).fillna(0.0)
 base = float(y.mean())
 print(f"clusters {len(df)}, struck-off base rate {base:.3f}")
 
 
 def wilson(k, n, z=1.96):
+    if n <= 0:
+        return np.nan, np.nan
     p = k / n
     d = 1 + z * z / n
     m = (p + z * z / (2 * n)) / d
@@ -78,8 +85,9 @@ def iforest(cols):
 
 systems = {"1 stored composite score": df["composite_score"].values.astype(float),
            "2 Isolation Forest refit, all signals": iforest(feats)}
-for f in feats:
-    systems[f"3 Isolation Forest without {f}"] = iforest([c for c in feats if c != f])
+if len(feats) > 1:
+    for f in feats:
+        systems[f"3 Isolation Forest without {f}"] = iforest([c for c in feats if c != f])
 systems["4 fixed-weight rule (equal weights)"] = MinMaxScaler().fit_transform(X).mean(axis=1)
 systems["5 Local Outlier Factor (k=35)"] = -LocalOutlierFactor(n_neighbors=35).fit(
     StandardScaler().fit_transform(X)).negative_outlier_factor_
@@ -110,11 +118,22 @@ for label, m in [("size 2", (df.cluster_size == 2).values), ("size 3+", (df.clus
 dqp = "results/v2/cluster_dq.csv"
 if os.path.exists(dqp):
     dq = pd.read_csv(dqp)
-    if {"has_duplicate", "has_placeholder"} <= set(dq.columns):
-        dq["art"] = dq["has_duplicate"].astype(bool) | dq["has_placeholder"].astype(bool)
+    artifact_cols = {"artifact", "has_duplicate", "has_placeholder"} & set(dq.columns)
+    if artifact_cols:
+        dq["art"] = False
+        if "artifact" in artifact_cols:
+            dq["art"] |= dq["artifact"].fillna(False).astype(bool)
+        if "has_duplicate" in artifact_cols:
+            dq["art"] |= dq["has_duplicate"].fillna(False).astype(bool)
+        if "has_placeholder" in artifact_cols:
+            dq["art"] |= dq["has_placeholder"].fillna(False).astype(bool)
         d2 = df.merge(dq[["cluster_id", "art"]], on="cluster_id", how="left")
         keep = ~d2["art"].fillna(False).values
         s, yy = d2.loc[keep, "composite_score"].values.astype(float), y[keep]
+        if yy.size and np.unique(yy).size == 2:
+            srows.append({"stratum": "artifact-flagged clusters removed", "n": int(keep.sum()),
+                          "base_rate": round(float(yy.mean()), 3), "metric": "AUC",
+                          "value": round(roc_auc_score(yy, s), 3)})
         for K in (50, 100, 370):
             idx = np.argsort(-s, kind="stable")[:K]
             srows.append({"stratum": "artifact-flagged clusters removed", "n": int(keep.sum()),
@@ -127,7 +146,6 @@ else:
 pd.DataFrame(srows).to_csv("results/v2/extra_eval_size.csv", index=False)
 print(pd.DataFrame(srows).to_string(index=False))
 
-from scipy.stats import spearmanr
 print("refit vs stored composite, Spearman:", round(spearmanr(systems["2 Isolation Forest refit, all signals"], df["composite_score"])[0], 3))
 for label, m in [("size 2", (df.cluster_size == 2).values), ("size 3+", (df.cluster_size >= 3).values)]:
     s_ = df.loc[m, "composite_score"].values.astype(float); yy = y[m]
