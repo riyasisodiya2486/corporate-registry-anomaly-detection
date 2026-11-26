@@ -3,7 +3,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from queries import (get_leaderboard, get_summary, load_cluster_extras,
-                     load_cluster_view, search_company)
+                     load_cluster_view, search_company, get_human_summary)
 from reviewer_ui import (blind_active, render_blind_queue, render_open_review,
                          render_reviewer_login, render_ai_opinion)
 
@@ -203,6 +203,14 @@ def go(page_name, cluster=None, query=None):
     st.session_state["nav_override"] = page_name
 
 
+def zone(title, sub):
+    st.markdown(
+        f"<div style='margin:34px 0 6px 0;padding:6px 14px;border-left:4px solid #38BDF8;"
+        f"background:#0D131F;color:#94A3B8;font-family:JetBrains Mono,monospace;font-size:0.75rem;"
+        f"letter-spacing:.12em;text-transform:uppercase;'>{title} "
+        f"<span style='color:#64748B'>&middot; {sub}</span></div>", unsafe_allow_html=True)
+
+
 if "nav_override" in st.session_state:
     st.session_state["page"] = st.session_state.pop("nav_override")
 
@@ -240,15 +248,41 @@ if blind_active() and page != "Cluster Detail":
 if page == "Home":
     st.markdown(
         """
-        <div style="padding: 12px 0 24px 0;">
+        <div style="padding: 12px 0 16px 0;">
             <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #38BDF8; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 6px;">SYSTEM OVERVIEW</div>
             <h1 style="margin: 0; font-size: 2rem;">Corporate Registry Anomaly Intelligence</h1>
-            <p style="color: #94A3B8; font-size: 0.95rem; max-width: 800px; margin-top: 8px; line-height: 1.6;">
+            <p style="color: #94A3B8; font-size: 0.95rem; max-width: 820px; margin-top: 8px; line-height: 1.6;">
                 This tool finds unusual groups of look-alike companies in the ROC Pune registry
                 (shared addresses, near-identical names, registered at nearly the same time) and
                 gives each group a score. A high score means the group deserves a closer human look.
                 It does not mean anything illegal happened.
             </p>
+        </div>
+
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin:16px 0 12px 0;">
+        <div style="flex:1;min-width:170px;background:#0D131F;border:1px solid #1B2A4A;border-radius:6px;padding:14px;">
+            <div style="color:#38BDF8;font-size:0.7rem;font-family:JetBrains Mono,monospace;">STEP 1</div>
+            <div style="font-weight:600;margin-top:4px;">188,042 registry records</div>
+            <div style="color:#94A3B8;font-size:0.8rem;margin-top:2px;">cleaned, blocked and matched</div>
+        </div>
+        <div style="align-self:center;color:#38BDF8;font-size:1.1rem;">&rarr;</div>
+        <div style="flex:1;min-width:170px;background:#0D131F;border:1px solid #1B2A4A;border-radius:6px;padding:14px;">
+            <div style="color:#38BDF8;font-size:0.7rem;font-family:JetBrains Mono,monospace;">STEP 2</div>
+            <div style="font-weight:600;margin-top:4px;">7,384 look-alike clusters</div>
+            <div style="color:#94A3B8;font-size:0.8rem;margin-top:2px;">graph clustering, ranked by rarity</div>
+        </div>
+        <div style="align-self:center;color:#38BDF8;font-size:1.1rem;">&rarr;</div>
+        <div style="flex:1;min-width:170px;background:#0D131F;border:1px solid #1B2A4A;border-radius:6px;padding:14px;">
+            <div style="color:#38BDF8;font-size:0.7rem;font-family:JetBrains Mono,monospace;">STEP 3</div>
+            <div style="font-weight:600;margin-top:4px;">Explained drivers</div>
+            <div style="color:#94A3B8;font-size:0.8rem;margin-top:2px;">top three factors per cluster (SHAP)</div>
+        </div>
+        <div style="align-self:center;color:#38BDF8;font-size:1.1rem;">&rarr;</div>
+        <div style="flex:1;min-width:170px;background:#0D131F;border:1px solid #1B2A4A;border-radius:6px;padding:14px;">
+            <div style="color:#38BDF8;font-size:0.7rem;font-family:JetBrains Mono,monospace;">STEP 4</div>
+            <div style="font-weight:600;margin-top:4px;">Human and AI review</div>
+            <div style="color:#94A3B8;font-size:0.8rem;margin-top:2px;">second opinion, tamper-evident record</div>
+        </div>
         </div>
     """,
         unsafe_allow_html=True,
@@ -474,6 +508,8 @@ elif page == "Cluster Detail":
             m1.metric("Score", f"{scores['composite_score']:.1f} / 100")
             m2.metric("Classification", flag)
             m3.metric("Companies in Cluster", len(members))
+            st.caption("Score = how rare this pattern is compared with all other clusters (0 to 100). "
+                       "It is a rank of rarity, not a probability of wrongdoing.")
 
             if scores.get("flag_category") == "high_priority":
                 st.error("[REVIEW SUGGESTED] Several signals point the same way. This is a lead for human review, not a finding.")
@@ -485,6 +521,7 @@ elif page == "Cluster Detail":
             if len(members) > 1 and members["address_raw"].nunique() == 1:
                 st.info(f"All {len(members)} companies list the same registered address.")
 
+            zone("Explanation", "why the cluster ranks where it does")
             st.markdown("<h3 style='margin-top: 28px; font-size: 1.1rem;'>Why this was flagged</h3>", unsafe_allow_html=True)
             st.caption("Top 3 factors. A bigger number means that factor pushed the score up more.")
             ex = data["explanations"].copy()
@@ -497,6 +534,7 @@ elif page == "Cluster Detail":
                     use_container_width=True,
                 )
 
+            zone("Evidence", "members, links and facts")
             st.markdown("<h3 style='margin-top: 28px; font-size: 1.1rem;'>Companies in this cluster</h3>", unsafe_allow_html=True)
             mem = members.rename(
                 columns={
@@ -510,6 +548,10 @@ elif page == "Cluster Detail":
             )
             st.dataframe(mem, hide_index=True, use_container_width=True)
             extras = load_cluster_extras(int(cluster_id))
+            if not extras["reuse"].empty and int(extras["reuse"]["n_clusters"].max()) >= 3:
+                st.caption("Note: at least one address here is used by 3 or more clusters. It may be a "
+                           "building shared by many firms (for example a CA office, registered agent, "
+                           "industrial estate or co-working space), which is a common harmless explanation.")
             if v2_views is not None:
                 st.markdown("<h3 style='margin-top: 28px; font-size: 1.1rem;'>Network view</h3>",
                             unsafe_allow_html=True)
@@ -540,7 +582,16 @@ elif page == "Cluster Detail":
                         st.write(dossier)
                 except Exception as e:
                     st.caption(f"Dossier failed: {type(e).__name__}: {e}")
+            zone("Verdicts", "AI opinion and human review")
             render_ai_opinion(int(cluster_id))
+            hs = get_human_summary(int(cluster_id))
+            if hs:
+                st.markdown("#### Human review")
+                how = ("both reviewers agreed" if hs["reviewers_agreed"]
+                       else "reviewers disagreed first, then agreed after discussion")
+                st.markdown(f"**Final verdict:** `{hs['final_verdict']}` ({how})")
+                st.caption("Reviewed by the two project reviewers, who are also the system authors, "
+                           "in a 70-cluster sample. Not a finding of wrongdoing.")
             render_open_review(int(cluster_id))
             
     else:
