@@ -1,0 +1,4 @@
+flag_category,clusters,mean_inactive_share
+baseline,5907,0.1788888924080243
+high_priority,370,0.2390482964167175
+moderate,1107,0.23627043989282198

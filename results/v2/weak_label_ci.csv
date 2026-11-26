@@ -1,0 +1,19 @@
+outcome,size,flag,k,n,pct,lo,hi
+any_struck,all,high_priority,119,370,32.2,27.6,37.1
+any_struck,all,moderate,405,1107,36.6,33.8,39.5
+any_struck,all,baseline,1581,5907,26.8,25.7,27.9
+any_struck,size 2,high_priority,46,156,29.5,22.9,37.1
+any_struck,size 2,moderate,229,666,34.4,30.9,38.1
+any_struck,size 2,baseline,1229,4819,25.5,24.3,26.8
+any_struck,size 3+,high_priority,73,214,34.1,28.1,40.7
+any_struck,size 3+,moderate,176,441,39.9,35.4,44.5
+any_struck,size 3+,baseline,352,1088,32.4,29.6,35.2
+any_efil,all,high_priority,73,370,19.7,16.0,24.1
+any_efil,all,moderate,111,1107,10.0,8.4,11.9
+any_efil,all,baseline,87,5907,1.5,1.2,1.8
+any_efil,size 2,high_priority,61,156,39.1,31.8,46.9
+any_efil,size 2,moderate,99,666,14.9,12.4,17.8
+any_efil,size 2,baseline,74,4819,1.5,1.2,1.9
+any_efil,size 3+,high_priority,12,214,5.6,3.2,9.5
+any_efil,size 3+,moderate,12,441,2.7,1.6,4.7
+any_efil,size 3+,baseline,13,1088,1.2,0.7,2.0

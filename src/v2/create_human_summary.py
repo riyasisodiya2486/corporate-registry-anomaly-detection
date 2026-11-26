@@ -18,10 +18,9 @@ col = next((x for x in ["final_label", "label", "y"] if x in lab.columns), None)
 if col is None:
     raise SystemExit("Tell me which column holds the label: " + str(list(lab.columns)))
 eng = create_engine(url)
-with eng.connect() as c:
-    rv = pd.read_sql(text("""SELECT cluster_id, reviewer, verdict FROM reviewer_reviews
-        WHERE review_mode='blind_queue' AND review_round='r1'"""), c)
-agreed = rv.groupby("cluster_id").verdict.nunique().eq(1)
+if "source" not in lab.columns:
+    raise SystemExit("labels_final.csv is missing the 'source' column.")
+agreed = dict(zip(lab.cluster_id.astype(int), lab["source"].astype(str).eq("agreed")))
 rows = []
 for cid, v in zip(lab.cluster_id, lab[col]):
     v = L2V.get(str(v), str(v))
