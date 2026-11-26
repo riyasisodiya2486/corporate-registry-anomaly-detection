@@ -252,3 +252,13 @@ def get_ai_opinion(cluster_id: int):
         return dict(row) if row else None
     except Exception:
         return None
+
+@st.cache_data(ttl=600, show_spinner=False)
+def get_human_summary(cluster_id: int):
+    try:
+        with get_engine().connect() as conn:
+            row = conn.execute(text("""SELECT final_verdict, n_reviewers, reviewers_agreed
+                FROM human_summary WHERE cluster_id = :c"""), {"c": int(cluster_id)}).mappings().first()
+        return dict(row) if row else None
+    except Exception:
+        return None
