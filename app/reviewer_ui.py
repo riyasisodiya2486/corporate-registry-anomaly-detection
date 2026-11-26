@@ -6,7 +6,8 @@ import streamlit as st
 
 from queries import (BLIND_MODE, CHECK_COLUMNS, OPEN_MODE, VERDICTS, get_reviews,
                      load_cluster_extras, load_cluster_view, next_queue_cluster,
-                     reviewer_enabled, reviewer_passcode, reviewer_progress, save_review)
+                     reviewer_enabled, reviewer_passcode, reviewer_progress, save_review,
+                     get_ai_opinion)
 
 QUEUE_BATCH = os.environ.get("REVIEW_BATCH", "r1")   # set REVIEW_BATCH=r2 for Round 2
 OPEN_ROUND = "open"
@@ -111,6 +112,8 @@ def _form(review_round: str, mode: str, cluster_id: int, reviewer: str, key: str
         first = (str(e).splitlines() or [""])[0][:200]
         st.session_state["save_error"] = f"{type(e).__name__}: {first}"
         st.rerun()
+    if mode == BLIND_MODE:
+        st.session_state["last_saved"] = {"cid": int(cluster_id), "verdict": verdict}
     st.session_state["save_ok"] = True
     return True
 
@@ -123,7 +126,11 @@ def render_blind_queue():
         return
     reviewer = ss["reviewer_name"]
     if ss.pop("save_ok", False):
-        st.success("Review saved. Here is the next group.")
+        st.success("Review saved.")
+        last = ss.pop("last_saved", None)
+        if last:
+            with st.expander(f"Compare with the AI opinion (cluster #{last['cid']})", expanded=True):
+                render_ai_opinion(last["cid"], last["verdict"])
     if ss.get("save_error"):
         st.error(f"Could not save: {ss.pop('save_error')}")
     done, total = reviewer_progress(QUEUE_BATCH, reviewer)
@@ -190,3 +197,22 @@ def render_open_review(cluster_id: int):
         if _form(OPEN_ROUND, OPEN_MODE, int(cluster_id), ss["reviewer_name"],
                  f"open_{cluster_id}_{ss['reviewer_name']}"):
             st.success("Saved.")
+
+def render_ai_opinion(cluster_id: int, your_verdict: str = None):
+    """AI opinion from names, addresses, capital and dates only. Never a label."""
+    st.markdown("#### AI opinion")
+    op = get_ai_opinion(int(cluster_id))
+    if not op:
+        st.caption("No AI opinion has been generated for this cluster yet.")
+        return
+    st.markdown(f"**AI verdict:** `{op['verdict']}`")
+    if your_verdict:
+        st.markdown(f"**Your verdict:** `{your_verdict}`  "
+                    + ("(agrees)" if your_verdict == op["verdict"] else "(differs)"))
+    if op.get("reason"):
+        st.write(op["reason"])
+    st.caption(f"Duplicate record: {op['duplicate_record']} | Address: {op['address_type']} | "
+               f"Registered close: {op['registered_close']}")
+    st.caption("Generated automatically by a language model from names, addresses, capital and "
+               "registration dates only. It can be wrong, it is not a finding of wrongdoing, "
+               "and it is never counted as a review label.")
