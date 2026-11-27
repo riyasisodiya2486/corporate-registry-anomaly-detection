@@ -13,7 +13,10 @@ url = os.environ["V2_DATABASE_URL"]
 if url == os.environ.get("DATABASE_URL"):
     raise SystemExit("REFUSED: V2_DATABASE_URL equals DATABASE_URL.")
 L2V = {"Y": "worth_review", "N": "ordinary", "D": "data_artifact"}
-lab = pd.read_csv("results/v2/labels_final.csv")
+lab = pd.concat([
+    pd.read_csv("results/v2/labels_final.csv"),
+    pd.read_csv("results/v2/labels_r2.csv").query("label in ['Y','N','D']"),
+])
 col = next((x for x in ["final_label", "label", "y"] if x in lab.columns), None)
 if col is None:
     raise SystemExit("Tell me which column holds the label: " + str(list(lab.columns)))
