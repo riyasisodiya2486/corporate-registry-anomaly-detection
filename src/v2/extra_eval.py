@@ -41,6 +41,8 @@ FEATURE_COLS = [
     "category_homogeneity_score",
     "bridge_flag",
 ]
+if "bridge_flag" in df.columns:
+    df["bridge_flag"] = df["bridge_flag"].astype(int)
 feats = [col for col in FEATURE_COLS if col in df.columns]
 missing_feats = [col for col in FEATURE_COLS if col not in df.columns]
 print("signals used:", feats)

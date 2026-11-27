@@ -1,3 +1,7 @@
 stratum,n,base_rate,metric,value
 size 2,5641,0.267,AUC,0.594
 size 3+,1743,0.345,AUC,0.542
+artifact-flagged clusters removed,6688,0.264,AUC,0.566
+artifact-flagged clusters removed,6688,0.264,P@50,0.26
+artifact-flagged clusters removed,6688,0.264,P@100,0.26
+artifact-flagged clusters removed,6688,0.264,P@370,0.273
