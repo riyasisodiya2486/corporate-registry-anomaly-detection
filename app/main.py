@@ -591,7 +591,7 @@ elif page == "Cluster Detail":
                        else "reviewers disagreed first, then agreed after discussion")
                 st.markdown(f"**Final verdict:** `{hs['final_verdict']}` ({how})")
                 st.caption("Reviewed by the two project reviewers, who are also the system authors, "
-                           "in a 70-cluster sample. Not a finding of wrongdoing.")
+                           "in a 148-cluster sample. Not a finding of wrongdoing.")
             render_open_review(int(cluster_id))
             
     else:
